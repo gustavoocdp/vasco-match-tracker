@@ -1,0 +1,16 @@
+{
+  "name": "Vasco Match Tracker",
+  "short_name": "Vasco Tracker",
+  "description": "Controle de presença, aproveitamento e finanças em jogos do CR Vasco da Gama",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A0A0A",
+  "theme_color": "#0A0A0A",
+  "icons": [
+  {
+    "src": "/cruz-de-malta.png",
+    "sizes": "512x512",
+    "type": "image/png"
+  }
+]
+}
