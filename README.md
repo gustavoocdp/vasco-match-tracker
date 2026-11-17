@@ -21,41 +21,44 @@ Aplicação Full-Stack (PWA) desenvolvida para registrar, acompanhar e analisar 
 - **Backend:** Python, FastAPI, SQLAlchemy, Pydantic (hospedado no **Render**)
 - **Banco de Dados:** PostgreSQL serverless (**Neon**)
 
-```text
-vasco-match-tracker/
-├── backend/          # API RESTful em FastAPI, modelos SQLAlchemy e validações
-└── frontend/         # Interface SPA/PWA em React + TypeScript
+### Estrutura do Projeto
+- `backend/` — API RESTful em FastAPI, modelos SQLAlchemy e validações
+- `frontend/` — Interface SPA/PWA em React + TypeScript
 
-💻 Como executar localmente
-1. Clonar o repositório
-git clone [https://github.com/gustavoocdp/vasco-match-tracker.git](https://github.com/gustavoocdp/vasco-match-tracker.git)
-cd vasco-match-tracker
+---
 
-2. Configurar e rodar o Backend
+## 💻 Como executar localmente
 
-cd backend
-python -m venv venv
-venv\Scripts\activate
-pip install -r requirements.txt
+### 1. Clonar o repositório
+- `git clone https://github.com/gustavoocdp/vasco-match-tracker.git`
+- `cd vasco-match-tracker`
 
-Crie um arquivo .env dentro da pasta backend/ com as variáveis abaixo e inicie o servidor:
+### 2. Configurar e rodar o Backend
+- `cd backend`
+- `python -m venv venv`
+- `venv\Scripts\activate`
+- `pip install -r requirements.txt`
 
-DATABASE_URL=sqlite:///./vasco.db
-ADMIN_KEY=sua_chave_secreta
-CORS_ORIGINS=http://localhost:5173
+Crie um arquivo `.env` dentro da pasta `backend/` com as variáveis:
+- `DATABASE_URL=sqlite:///./vasco.db`
+- `ADMIN_KEY=sua_chave_secreta`
+- `CORS_ORIGINS=http://localhost:5173`
 
-uvicorn app.main:app --reload
+Inicie o servidor:
+- `uvicorn app.main:app --reload`
 
+### 3. Configurar e rodar o Frontend
+- `cd frontend`
+- `npm install`
 
-3. Configurar e rodar o Frontend
-cd frontend
-npm install
- 
- Crie um arquivo .env dentro da pasta frontend/ apontando para a API local e inicie a aplicação:
+Crie um arquivo `.env` dentro da pasta `frontend/` com a variável:
+- `VITE_API_URL=http://127.0.0.1:8000`
 
- VITE_API_URL=[http://127.0.0.1:8000](http://127.0.0.1:8000)
+Inicie a aplicação:
+- `npm run dev`
 
- npm run dev
+---
 
- 👨‍💻 Autor
-Desenvolvido por Gustavo Carvalho de Paiva — Estudante de Engenharia da Computação (Universidade Veiga de Almeida).
+## 👨‍💻 Autor
+
+Desenvolvido por **Gustavo Carvalho de Paiva** — Estudante de Engenharia da Computação (Universidade Veiga de Almeida).
