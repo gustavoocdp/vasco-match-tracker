@@ -257,6 +257,7 @@ export default function App() {
     titulo: string;
     subtitulo?: string;
     logo?: string | null;
+    destacarMinuto80?: boolean;
     jogos: Partida[];
   } | null>(null);
 
@@ -587,12 +588,47 @@ export default function App() {
     });
   };
 
+  const parseMinutoSort = (minStr: string): number => {
+    const m = /^(\d+)(?:\+(\d+))?/.exec((minStr || '').replace(/'/g, '').trim());
+    if (!m) return 999;
+    return Number(m[1]) + (m[2] ? Number(m[2]) * 0.01 : 0);
+  };
+
+  const ehMinuto80Mais = (minStr: string): boolean => {
+    const m = /^(\d+)/.exec((minStr || '').trim());
+    return m ? Number(m[1]) >= 80 : false;
+  };
+
   const jogosApos80 = jogosFinalizados.filter((p) =>
-    (p.gols_detalhes?.vasco || []).some((g) => {
-      const m = /^(\d+)/.exec((g.minuto || '').trim());
-      return m ? Number(m[1]) >= 80 : false;
-    })
+    (p.gols_detalhes?.vasco || []).some((g) => ehMinuto80Mais(g.minuto))
   );
+
+  const vitoriasDeVirada = jogosFinalizados.filter((p) => {
+    if (p.gols_vasco <= p.gols_adversario || !p.gols_detalhes) return false;
+    const eventos: { lado: 'V' | 'A'; ordem: number }[] = [
+      ...(p.gols_detalhes.vasco || []).map((g) => ({ lado: 'V' as const, ordem: parseMinutoSort(g.minuto) })),
+      ...(p.gols_detalhes.adversario || []).map((g) => ({ lado: 'A' as const, ordem: parseMinutoSort(g.minuto) }))
+    ].sort((a, b) => a.ordem - b.ordem);
+
+    let pv = 0;
+    let pa = 0;
+    for (const ev of eventos) {
+      if (ev.lado === 'V') pv++;
+      else pa++;
+      if (pa > pv) return true;
+    }
+    return false;
+  });
+
+  const agruparGolsPorJogador = (gols: GolDetalhe[]) => {
+    const mapa = new Map<string, string[]>();
+    for (const g of gols) {
+      const lista = mapa.get(g.jogador) || [];
+      if (g.minuto) lista.push(g.minuto);
+      mapa.set(g.jogador, lista);
+    }
+    return Array.from(mapa.entries()).map(([jogador, minutos]) => ({ jogador, minutos }));
+  };
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-zinc-100 pb-16">
@@ -1043,7 +1079,7 @@ export default function App() {
 
         {/* Linha de Micro-KPIs Secundários */}
         {abaAtiva === 'estatisticas' && stats && stats.total_jogos > 0 && (
-          <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
             <div className="bg-[#141414] border border-zinc-800/80 rounded-xl px-4 py-3">
               <div className="text-[11px] uppercase tracking-wider text-zinc-400 font-medium">
                 Média de Gols / Jogo
@@ -1072,6 +1108,7 @@ export default function App() {
                 setJogosModal({
                   titulo: "Gols no Finalzinho (80'+)",
                   subtitulo: `${pluralJogos(jogosApos80.length)} com gol do Vasco após os 35' do 2ºT`,
+                  destacarMinuto80: true,
                   jogos: jogosApos80
                 })
               }
@@ -1085,7 +1122,26 @@ export default function App() {
               </div>
             </button>
 
-            <div className="bg-[#141414] border border-zinc-800/80 rounded-xl px-4 py-3">
+            <button
+              type="button"
+              onClick={() =>
+                setJogosModal({
+                  titulo: 'Vitórias de Virada',
+                  subtitulo: `${pluralJogos(vitoriasDeVirada.length)} em que o Vasco saiu atrás e virou`,
+                  jogos: vitoriasDeVirada
+                })
+              }
+              className="text-left bg-[#141414] border border-zinc-800/80 hover:border-amber-500/40 rounded-xl px-4 py-3 transition cursor-pointer"
+            >
+              <div className="text-[11px] uppercase tracking-wider text-zinc-400 font-medium">
+                Vitórias de Virada
+              </div>
+              <div className="text-sm font-bold text-emerald-400 mt-1 tabular-nums">
+                {pluralJogos(vitoriasDeVirada.length)}
+              </div>
+            </button>
+
+            <div className="col-span-2 md:col-span-1 bg-[#141414] border border-zinc-800/80 rounded-xl px-4 py-3">
               <div className="text-[11px] uppercase tracking-wider text-zinc-400 font-medium">
                 Eficiência Financeira
               </div>
@@ -2483,7 +2539,7 @@ export default function App() {
               </button>
             </div>
 
-            <div className="p-4 sm:p-5 overflow-y-auto space-y-2.5">
+            <div className="p-4 sm:p-5 overflow-y-auto space-y-3">
               {jogosModal.jogos.length > 0 ? (
                 jogosModal.jogos.map((p) => {
                   const badge = badgeStatus(p);
@@ -2493,45 +2549,135 @@ export default function App() {
                       : p.resultado === 'E'
                       ? 'border-l-[#D4AF37]'
                       : 'border-l-rose-500';
+                  const golsMandante = agruparGolsPorJogador(
+                    p.mando === 'Fora' ? p.gols_detalhes?.adversario || [] : p.gols_detalhes?.vasco || []
+                  );
+                  const golsVisitante = agruparGolsPorJogador(
+                    p.mando === 'Fora' ? p.gols_detalhes?.vasco || [] : p.gols_detalhes?.adversario || []
+                  );
+                  const temGols = golsMandante.length > 0 || golsVisitante.length > 0;
+
                   return (
                     <div
                       key={`modal-jogo-${p.id}`}
-                      className={`bg-zinc-900/80 border border-zinc-800 border-l-4 ${borderLeftCls} rounded-xl p-3 space-y-2`}
+                      className={`bg-zinc-900/80 border border-zinc-800/90 border-l-4 ${borderLeftCls} rounded-2xl p-3.5 space-y-2.5`}
                     >
-                      <div className="flex items-center justify-between text-[11px] text-zinc-400">
+                      <div className="flex items-center justify-between text-xs text-zinc-400">
                         <span className="font-medium text-zinc-300">{p.competicao}</span>
                         <div className="flex items-center gap-2">
                           <span className="tabular-nums">{formatarData(p.data_jogo)}</span>
-                          <span className={`font-bold px-1.5 py-0.5 rounded border text-[10px] ${badge.cls}`}>
+                          <span className={`font-bold px-2 py-0.5 rounded border text-[10px] ${badge.cls}`}>
                             {badge.label}
                           </span>
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between bg-zinc-950/60 border border-zinc-800/70 rounded-lg px-3 py-2 text-xs font-bold">
-                        <span className="text-white truncate flex-1">
-                          {p.mando === 'Fora' ? p.adversario : 'Vasco da Gama'}
-                        </span>
-                        <span className="text-base font-extrabold tabular-nums px-2 shrink-0">
-                          <span className={p.mando === 'Fora' ? 'text-zinc-400' : 'text-white'}>
-                            {p.mando === 'Fora' ? p.gols_adversario : p.gols_vasco}
-                          </span>
-                          <span className="text-zinc-600 mx-1">×</span>
-                          <span className={p.mando === 'Fora' ? 'text-white' : 'text-zinc-400'}>
-                            {p.mando === 'Fora' ? p.gols_vasco : p.gols_adversario}
-                          </span>
-                        </span>
-                        <span className="text-zinc-300 truncate flex-1 text-right">
-                          {p.mando === 'Fora' ? 'Vasco da Gama' : p.adversario}
-                        </span>
+                      <div className="bg-zinc-950/70 border border-zinc-800/80 rounded-xl px-3.5 py-2.5">
+                        <div className="flex items-center justify-between gap-2 text-sm font-bold">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            {p.mando === 'Fora' ? (
+                              p.adversario_logo && (
+                                <img
+                                  src={p.adversario_logo}
+                                  alt={p.adversario}
+                                  className="w-5 h-5 object-contain shrink-0"
+                                />
+                              )
+                            ) : (
+                              <img src={VASCO_LOGO_URL} alt="Vasco" className="w-5 h-5 object-contain shrink-0" />
+                            )}
+                            <span className="text-white truncate">
+                              {p.mando === 'Fora' ? p.adversario : 'Vasco da Gama'}
+                            </span>
+                          </div>
+
+                          <div className="text-xl font-black tabular-nums px-2 shrink-0">
+                            <span className={p.mando === 'Fora' ? 'text-[#D4AF37]/80' : 'text-white'}>
+                              {p.mando === 'Fora' ? p.gols_adversario : p.gols_vasco}
+                            </span>
+                            <span className="text-zinc-600 text-sm font-normal mx-1.5">×</span>
+                            <span className={p.mando === 'Fora' ? 'text-white' : 'text-[#D4AF37]/80'}>
+                              {p.mando === 'Fora' ? p.gols_vasco : p.gols_adversario}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-end gap-2 min-w-0 flex-1">
+                            <span className="text-zinc-200 truncate text-right">
+                              {p.mando === 'Fora' ? 'Vasco da Gama' : p.adversario}
+                            </span>
+                            {p.mando === 'Fora' ? (
+                              <img src={VASCO_LOGO_URL} alt="Vasco" className="w-5 h-5 object-contain shrink-0" />
+                            ) : (
+                              p.adversario_logo && (
+                                <img
+                                  src={p.adversario_logo}
+                                  alt={p.adversario}
+                                  className="w-5 h-5 object-contain shrink-0"
+                                />
+                              )
+                            )}
+                          </div>
+                        </div>
+
+                        {temGols && (
+                          <div className="mt-2.5 pt-2 border-t border-zinc-800/80 grid grid-cols-2 gap-3 text-[11px]">
+                            <div className="space-y-1 text-left min-w-0">
+                              {golsMandante.map((g, i) => {
+                                const ehVasco = p.mando !== 'Fora';
+                                const tem80 =
+                                  jogosModal.destacarMinuto80 &&
+                                  ehVasco &&
+                                  g.minutos.some((m) => ehMinuto80Mais(m));
+                                return (
+                                  <div
+                                    key={i}
+                                    className={`flex items-center gap-1.5 truncate ${
+                                      tem80 ? 'text-[#D4AF37] font-semibold' : 'text-zinc-400'
+                                    }`}
+                                  >
+                                    <BolaIcon className="w-3 h-3 shrink-0 opacity-75" />
+                                    <span className="truncate">
+                                      {g.jogador}
+                                      {g.minutos.length > 0 ? ` (${g.minutos.join(', ')})` : ''}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <div className="space-y-1 text-right min-w-0">
+                              {golsVisitante.map((g, i) => {
+                                const ehVasco = p.mando === 'Fora';
+                                const tem80 =
+                                  jogosModal.destacarMinuto80 &&
+                                  ehVasco &&
+                                  g.minutos.some((m) => ehMinuto80Mais(m));
+                                return (
+                                  <div
+                                    key={i}
+                                    className={`flex items-center justify-end gap-1.5 truncate ${
+                                      tem80 ? 'text-[#D4AF37] font-semibold' : 'text-zinc-400'
+                                    }`}
+                                  >
+                                    <BolaIcon className="w-3 h-3 shrink-0 opacity-75" />
+                                    <span className="truncate">
+                                      {g.jogador}
+                                      {g.minutos.length > 0 ? ` (${g.minutos.join(', ')})` : ''}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </div>
 
-                      <div className="flex items-center justify-between text-[11px] text-zinc-400">
-                        <span className="flex items-center gap-1 truncate">
-                          <MapPin className="w-3 h-3 text-[#D4AF37] shrink-0" />
+                      <div className="flex items-center justify-between text-xs text-zinc-400 pt-0.5">
+                        <span className="flex items-center gap-1.5 truncate">
+                          <MapPin className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
                           <span className="truncate">{p.estadio}</span>
                         </span>
-                        <span className="tabular-nums font-medium text-zinc-300 shrink-0">
+                        <span className="flex items-center gap-1.5 tabular-nums font-medium text-zinc-300 shrink-0">
+                          <Ticket className="w-3.5 h-3.5 text-[#D4AF37]" />
                           {formatarMoeda(p.custo_total)}
                         </span>
                       </div>
