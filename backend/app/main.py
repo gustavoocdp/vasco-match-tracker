@@ -97,6 +97,7 @@ def health_check():
 
 @app.get("/partidas", response_model=List[PartidaResponse], tags=["Partidas"])
 def listar_partidas(
+    response: Response,
     ano: Optional[int] = None,
     estadio: Optional[str] = None,
     competicao: Optional[str] = None,
@@ -104,6 +105,8 @@ def listar_partidas(
     incluir_futuros: bool = False,
     db: Session = Depends(get_db),
 ):
+    if fui is True and not estadio and not competicao:
+        response.headers["Cache-Control"] = "public, s-maxage=60, stale-while-revalidate=300"
     # Auto-sincroniza na primeira execução caso ainda não haja jogos sincronizados
     tem_sincronizados = db.query(Partida.id).filter(Partida.external_id.isnot(None)).first()
     if not tem_sincronizados:
@@ -135,9 +138,6 @@ def listar_partidas(
 
     if ano:
         partidas = [p for p in partidas if p.data_jogo.year == ano]
-
-    if fui is True:
-        enriquecer_gols_partidas(db, partidas, limite=5)
 
     return [formatar_partida(p) for p in partidas]
 
@@ -370,27 +370,14 @@ def restaurar_backup_json(payload: dict = Body(...), db: Session = Depends(get_d
 
 
 @app.get("/estatisticas", response_model=EstatisticasResponse, tags=["Analytics"])
-def obter_estatisticas(ano: Optional[int] = None, db: Session = Depends(get_db)):
+def obter_estatisticas(response: Response, ano: Optional[int] = None, db: Session = Depends(get_db)):
+    response.headers["Cache-Control"] = "public, s-maxage=60, stale-while-revalidate=300"
     todas = db.query(Partida).order_by(Partida.data_jogo.desc()).all()
     if ano:
         todas = [p for p in todas if p.data_jogo.year == ano]
 
     presentes = [p for p in todas if p.fui]
     finalizadas_presentes = [p for p in presentes if (p.status_jogo or "finalizado") == "finalizado"]
-
-    if any(p.external_id is None for p in finalizadas_presentes):
-        try:
-            res_vinc = vincular_partidas_manuais_espn(db)
-            if res_vinc.get("vinculados") or res_vinc.get("mesclados"):
-                todas = db.query(Partida).order_by(Partida.data_jogo.desc()).all()
-                if ano:
-                    todas = [p for p in todas if p.data_jogo.year == ano]
-                presentes = [p for p in todas if p.fui]
-                finalizadas_presentes = [p for p in presentes if (p.status_jogo or "finalizado") == "finalizado"]
-        except Exception:
-            pass
-
-    enriquecer_gols_partidas(db, finalizadas_presentes, limite=12)
 
     total = len(finalizadas_presentes)
     vitorias = sum(1 for p in finalizadas_presentes if p.gols_vasco > p.gols_adversario)
