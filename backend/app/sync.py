@@ -477,7 +477,7 @@ def buscar_jogadores_365_em_lote(nomes: list[str]) -> dict[str, dict]:
             return chave, None
 
     with ThreadPoolExecutor(max_workers=8) as pool:
-        for chave, info in pool.map(_buscar_um, faltantes[:12]):
+        for chave, info in pool.map(_buscar_um, faltantes[:20]):
             _CACHE_365_BUSCA[chave] = info
             if info:
                 resultado[chave] = info

@@ -71,6 +71,8 @@ interface JogadorStat {
   gols?: number;
   assistencias?: number;
   total?: number;
+  jogos_em_campo?: number;
+  media_por_jogo?: number;
 }
 
 interface HeatmapItem {
@@ -111,6 +113,26 @@ interface Estatisticas {
     placar: string;
     adversario: string;
   } | null;
+  clean_sheets?: number;
+  clean_sheets_pct?: number;
+  jogos_sem_marcar?: number;
+  jogos_sem_marcar_pct?: number;
+  media_gols_pro?: number;
+  media_gols_contra?: number;
+  gols_apos_80?: number;
+  custo_por_ponto?: number;
+  custo_por_gol?: number;
+  maior_fregues?: {
+    adversario: string;
+    adversario_logo?: string | null;
+    jogos: number;
+    vitorias: number;
+    empates: number;
+    derrotas: number;
+    aproveitamento: number;
+  } | null;
+  opcoes_competicoes?: string[];
+  opcoes_estadios?: string[];
   por_estadio: Record<string, { jogos: number; vitorias: number; empates: number; derrotas: number }>;
   por_competicao: Record<string, { jogos: number; vitorias: number; empates: number; derrotas: number }>;
   por_mando?: Record<string, { jogos: number; vitorias: number; empates: number; derrotas: number }>;
@@ -225,6 +247,7 @@ export default function App() {
   // Abas e Filtros
   const [abaAtiva, setAbaAtiva] = useState<AbaAtiva>('estatisticas');
   const [filtroAno, setFiltroAno] = useState<string>('');
+  const [filtroCompeticao, setFiltroCompeticao] = useState<string>('');
   const [filtroEstadio, setFiltroEstadio] = useState<string>('');
   const [filtroCheckin, setFiltroCheckin] = useState<FiltroCheckin>('pendentes');
 
@@ -263,6 +286,7 @@ export default function App() {
     try {
       const params = new URLSearchParams();
       if (filtroAno) params.append('ano', filtroAno);
+      if (filtroCompeticao) params.append('competicao', filtroCompeticao);
       if (filtroEstadio) params.append('estadio', filtroEstadio);
 
       if (!adminKey || abaAtiva !== 'fazer-checkin') {
@@ -274,6 +298,8 @@ export default function App() {
 
       const statsParams = new URLSearchParams();
       if (filtroAno) statsParams.append('ano', filtroAno);
+      if (filtroCompeticao) statsParams.append('competicao', filtroCompeticao);
+      if (filtroEstadio) statsParams.append('estadio', filtroEstadio);
 
       const [resPartidas, resStats] = await Promise.all([
         fetchComRetry(`${API_URL}/partidas?${params.toString()}`),
@@ -298,7 +324,7 @@ export default function App() {
 
   useEffect(() => {
     carregarDados();
-  }, [filtroAno, filtroEstadio, abaAtiva, filtroCheckin, adminKey]);
+  }, [filtroAno, filtroCompeticao, filtroEstadio, abaAtiva, filtroCheckin, adminKey]);
 
   function salvarChaveAdmin(e: React.FormEvent) {
     e.preventDefault();
@@ -686,26 +712,88 @@ export default function App() {
           </div>
         )}
 
-        {/* Filtro de Ano na aba Estatísticas */}
-        {abaAtiva === 'estatisticas' && (
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-base font-bold text-white">Minhas Estatísticas</h2>
-            <select
-              value={filtroAno}
-              onChange={(e) => setFiltroAno(e.target.value)}
-              className="bg-[#141414] border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-[#D4AF37]"
-            >
-              <option value="">Todos os anos</option>
-              <option value="2026">2026</option>
-              <option value="2025">2025</option>
-              <option value="2024">2024</option>
-              <option value="2023">2023</option>
-              <option value="2022">2022</option>
-              <option value="2020">2020</option>
-              <option value="2019">2019</option>
-            </select>
-          </div>
-        )}
+        {/* Filtro compacto na aba Estatísticas */}
+        {abaAtiva === 'estatisticas' && (() => {
+          const temFiltro = Boolean(filtroAno || filtroCompeticao || filtroEstadio);
+          const partesRecorte = [
+            filtroAno,
+            filtroCompeticao,
+            filtroEstadio
+          ].filter(Boolean);
+
+          return (
+            <div className="space-y-2.5">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <h2 className="text-base font-bold text-white">Minhas Estatísticas</h2>
+                  {stats && (
+                    <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 tabular-nums">
+                      Exibindo {pluralJogos(stats.total_jogos)}
+                      {partesRecorte.length > 0 ? ` • ${partesRecorte.join(' • ')}` : ''}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    value={filtroAno}
+                    onChange={(e) => setFiltroAno(e.target.value)}
+                    className="bg-[#141414] border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-[#D4AF37]"
+                  >
+                    <option value="">Todos os anos</option>
+                    <option value="2026">2026</option>
+                    <option value="2025">2025</option>
+                    <option value="2024">2024</option>
+                    <option value="2023">2023</option>
+                    <option value="2022">2022</option>
+                    <option value="2020">2020</option>
+                    <option value="2019">2019</option>
+                  </select>
+
+                  <select
+                    value={filtroCompeticao}
+                    onChange={(e) => setFiltroCompeticao(e.target.value)}
+                    className="bg-[#141414] border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-[#D4AF37]"
+                  >
+                    <option value="">Todas competições</option>
+                    {(stats?.opcoes_competicoes || []).map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={filtroEstadio}
+                    onChange={(e) => setFiltroEstadio(e.target.value)}
+                    className="bg-[#141414] border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-[#D4AF37] max-w-[200px]"
+                  >
+                    <option value="">Todos estádios</option>
+                    {(stats?.opcoes_estadios || []).map((est) => (
+                      <option key={est} value={est}>
+                        {est}
+                      </option>
+                    ))}
+                  </select>
+
+                  {temFiltro && (
+                    <button
+                      onClick={() => {
+                        setFiltroAno('');
+                        setFiltroCompeticao('');
+                        setFiltroEstadio('');
+                      }}
+                      className="flex items-center gap-1 px-2.5 py-2 rounded-xl text-xs font-medium bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 hover:text-[#D4AF37] transition cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      <span>Limpar filtros</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Últimos Check-ins (Carrossel horizontal de 4 por vez no topo da aba Estatísticas) */}
         {abaAtiva === 'estatisticas' && partidas.length > 0 && (
@@ -904,6 +992,60 @@ export default function App() {
           );
         })()}
 
+        {/* Linha de Micro-KPIs Secundários */}
+        {abaAtiva === 'estatisticas' && stats && stats.total_jogos > 0 && (
+          <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="bg-[#141414] border border-zinc-800/80 rounded-xl px-4 py-3">
+              <div className="text-[11px] uppercase tracking-wider text-zinc-400 font-medium">
+                Média de Gols / Jogo
+              </div>
+              <div className="text-sm font-bold text-white mt-1 tabular-nums">
+                {stats.media_gols_pro ?? 0} pró •{' '}
+                <span className="text-zinc-400">{stats.media_gols_contra ?? 0} contra</span>
+              </div>
+            </div>
+
+            <div className="bg-[#141414] border border-zinc-800/80 rounded-xl px-4 py-3">
+              <div className="text-[11px] uppercase tracking-wider text-zinc-400 font-medium">
+                Clean Sheets / Em Branco
+              </div>
+              <div className="text-sm font-bold text-emerald-400 mt-1 tabular-nums">
+                {stats.clean_sheets ?? 0} sem sofrer ({stats.clean_sheets_pct ?? 0}%)
+              </div>
+              <div className="text-[11px] text-zinc-500 tabular-nums">
+                {stats.jogos_sem_marcar ?? 0} sem marcar ({stats.jogos_sem_marcar_pct ?? 0}%)
+              </div>
+            </div>
+
+            <div className="bg-[#141414] border border-zinc-800/80 rounded-xl px-4 py-3">
+              <div className="text-[11px] uppercase tracking-wider text-zinc-400 font-medium">
+                Gols no Finalzinho (80&apos;+)
+              </div>
+              <div className="text-sm font-bold text-[#D4AF37] mt-1 tabular-nums">
+                {stats.gols_apos_80 ?? 0} {(stats.gols_apos_80 ?? 0) === 1 ? 'gol' : 'gols'} após 35&apos; 2ºT
+              </div>
+            </div>
+
+            <div className="bg-[#141414] border border-zinc-800/80 rounded-xl px-4 py-3">
+              <div className="text-[11px] uppercase tracking-wider text-zinc-400 font-medium">
+                Eficiência Financeira
+              </div>
+              {stats.investimento_total > 0 ? (
+                <>
+                  <div className="text-sm font-bold text-white mt-1 tabular-nums">
+                    {formatarMoeda(stats.custo_por_ponto ?? 0)}/ponto
+                  </div>
+                  <div className="text-[11px] text-zinc-400 tabular-nums">
+                    {formatarMoeda(stats.custo_por_gol ?? 0)} por gol visto
+                  </div>
+                </>
+              ) : (
+                <div className="text-xs text-zinc-500 mt-1">Sem gastos no recorte</div>
+              )}
+            </div>
+          </section>
+        )}
+
         {/* Desempenho por Estádio */}
         {abaAtiva === 'estatisticas' && stats && Object.keys(stats.por_estadio).length > 0 && (
           <section className="bg-[#141414] border border-zinc-800/90 rounded-2xl p-4 sm:p-5">
@@ -1069,14 +1211,21 @@ export default function App() {
 
             {(stats.ranking_adversarios || []).length > 0 && (
               <div className="bg-[#141414] border border-zinc-800/90 rounded-2xl p-4 sm:p-5">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3 flex items-center gap-2">
-                  <Swords className="w-4 h-4 text-[#D4AF37]" />
-                  Adversários Mais Enfrentados
-                </h2>
-                <div className="space-y-2.5 max-h-[372px] overflow-y-auto pr-1">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                  <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
+                    <Swords className="w-4 h-4 text-[#D4AF37]" />
+                    Adversários Mais Enfrentados
+                  </h2>
+                  {stats.maior_fregues && (
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 tabular-nums">
+                      Maior Freguês: {stats.maior_fregues.adversario} ({stats.maior_fregues.aproveitamento}%)
+                    </span>
+                  )}
+                </div>
+                <div className="space-y-2.5 max-h-[312px] overflow-y-auto pr-1">
                   {(() => {
                     const maxJogos = Math.max(...stats.ranking_adversarios.map((a) => a.jogos), 1);
-                    return stats.ranking_adversarios.slice(0, 10).map((adv, idx) => {
+                    return stats.ranking_adversarios.slice(0, 15).map((adv, idx) => {
                       const pct = Math.round((adv.jogos / maxJogos) * 100);
                       const podioCls =
                         idx === 0
@@ -1138,196 +1287,156 @@ export default function App() {
           </section>
         )}
 
-        {/* Elenco em Campo (Mais vistos, Artilheiros, Assistências e G+A com sua presença) */}
+        {/* Elenco em Campo (Grid 2x2, Top 5 com Ver todos, barra sutil e média/jogo) */}
         {abaAtiva === 'estatisticas' &&
           stats &&
           ((stats.jogadores_mais_vistos || []).length > 0 ||
             (stats.artilheiros_vasco || []).length > 0 ||
             (stats.assistencias_vasco || []).length > 0 ||
-            (stats.participacoes_gols || []).length > 0) && (
-            <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-              {/* Mais Jogos Vistos */}
-              <div className="bg-[#141414] border border-zinc-800/90 rounded-2xl p-4 sm:p-5">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3 flex items-center gap-2">
-                  <Users className="w-4 h-4 text-[#D4AF37]" />
-                  Jogadores Mais Vistos
-                </h2>
-                <div className="space-y-2 max-h-[268px] overflow-y-auto pr-1">
-                  {(stats.jogadores_mais_vistos || []).slice(0, 10).map((item, idx) => (
+            (stats.participacoes_gols || []).length > 0) && (() => {
+            const configs = [
+              {
+                key: 'vistos',
+                titulo: 'Jogadores Mais Vistos',
+                icone: <Users className="w-4 h-4 text-[#D4AF37]" />,
+                lista: stats.jogadores_mais_vistos || [],
+                valorFn: (i: JogadorStat) => i.jogos || 0,
+                badgeFn: (i: JogadorStat) => `${i.jogos || 0}j`,
+                subFn: () => '',
+                destaqueCls: 'border-[#D4AF37]/40 bg-[#D4AF37]/[0.04]',
+                corNum: 'text-[#D4AF37]',
+                corBadge: 'text-zinc-200 bg-zinc-800',
+                vazio: 'Nenhum jogador registrado.'
+              },
+              {
+                key: 'artilheiros',
+                titulo: 'Artilheiros',
+                icone: <BolaIcon className="w-4 h-4 text-[#D4AF37]" />,
+                lista: stats.artilheiros_vasco || [],
+                valorFn: (i: JogadorStat) => i.gols || 0,
+                badgeFn: (i: JogadorStat) => `${i.gols || 0} ${(i.gols || 0) === 1 ? 'gol' : 'gols'}`,
+                subFn: (i: JogadorStat) =>
+                  i.media_por_jogo ? `${i.media_por_jogo.toFixed(2)}/jogo` : '',
+                destaqueCls: 'border-emerald-500/40 bg-emerald-500/[0.04]',
+                corNum: 'text-emerald-400',
+                corBadge: 'text-emerald-400 bg-emerald-500/10',
+                vazio: 'Nenhum gol do Vasco registrado nos jogos presentes.'
+              },
+              {
+                key: 'assistentes',
+                titulo: 'Assistentes',
+                icone: <Award className="w-4 h-4 text-[#D4AF37]" />,
+                lista: stats.assistencias_vasco || [],
+                valorFn: (i: JogadorStat) => i.assistencias || 0,
+                badgeFn: (i: JogadorStat) =>
+                  `${i.assistencias || 0} ${(i.assistencias || 0) === 1 ? 'ast' : 'asts'}`,
+                subFn: (i: JogadorStat) =>
+                  i.media_por_jogo ? `${i.media_por_jogo.toFixed(2)}/jogo` : '',
+                destaqueCls: 'border-[#D4AF37]/40 bg-[#D4AF37]/[0.04]',
+                corNum: 'text-[#D4AF37]',
+                corBadge: 'text-[#D4AF37] bg-[#D4AF37]/10',
+                vazio: 'Nenhuma assistência informada pela fonte nos jogos presentes.'
+              },
+              {
+                key: 'ga',
+                titulo: 'Maior G+A',
+                icone: <Flame className="w-4 h-4 text-[#D4AF37]" />,
+                lista: stats.participacoes_gols || [],
+                valorFn: (i: JogadorStat) => i.total || 0,
+                badgeFn: (i: JogadorStat) => `${i.total || 0} G+A`,
+                subFn: (i: JogadorStat) =>
+                  `${i.gols || 0}G+${i.assistencias || 0}A${
+                    i.media_por_jogo ? ` • ${i.media_por_jogo.toFixed(2)}/j` : ''
+                  }`,
+                destaqueCls: 'border-[#D4AF37]/40 bg-[#D4AF37]/[0.04]',
+                corNum: 'text-[#D4AF37]',
+                corBadge: 'text-white bg-zinc-800',
+                vazio: 'Nenhuma participação em gols registrada.'
+              }
+            ];
+
+            return (
+              <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {configs.map((cfg) => {
+                  const visiveis = cfg.lista.slice(0, 15);
+                  const maxVal = Math.max(...cfg.lista.map(cfg.valorFn), 1);
+
+                  return (
                     <div
-                      key={item.jogador}
-                      className={`px-2.5 py-2 rounded-xl bg-zinc-900/80 border flex items-center justify-between gap-2 text-xs ${
-                        idx === 0 ? 'border-[#D4AF37]/40 bg-[#D4AF37]/[0.04]' : 'border-zinc-800'
-                      }`}
+                      key={cfg.key}
+                      className="bg-[#141414] border border-zinc-800/90 rounded-2xl p-4 sm:p-5 flex flex-col justify-between"
                     >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span
-                          className={`font-bold w-3.5 text-center shrink-0 tabular-nums ${
-                            idx === 0 ? 'text-[#D4AF37]' : 'text-zinc-500'
-                          }`}
-                        >
-                          {idx + 1}
-                        </span>
-                        <JogadorAvatar nome={item.jogador} foto={item.foto} />
-                        <div className="min-w-0">
-                          <div className="text-white font-medium truncate">{item.jogador}</div>
-                          {item.posicao && (
-                            <span className="inline-block text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-400 border border-zinc-700/70">
-                              {item.posicao}
-                            </span>
-                          )}
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-3">
+                          <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
+                            {cfg.icone}
+                            {cfg.titulo}
+                          </h2>
                         </div>
+
+                        {visiveis.length > 0 ? (
+                          <div className="space-y-2 max-h-[268px] overflow-y-auto pr-1">
+                            {visiveis.map((item, idx) => {
+                              const pct = Math.round((cfg.valorFn(item) / maxVal) * 100);
+                              const sub = cfg.subFn(item);
+                              return (
+                                <div
+                                  key={item.jogador}
+                                  className={`relative overflow-hidden px-3 py-2 rounded-xl bg-zinc-900/80 border flex items-center justify-between gap-2 text-xs ${
+                                    idx === 0 ? cfg.destaqueCls : 'border-zinc-800'
+                                  }`}
+                                >
+                                  <div
+                                    aria-hidden="true"
+                                    style={{ width: `${pct}%` }}
+                                    className="absolute inset-y-0 left-0 bg-white/[0.03] pointer-events-none"
+                                  />
+                                  <div className="flex items-center gap-2 min-w-0 relative">
+                                    <span
+                                      className={`font-bold w-4 text-center shrink-0 tabular-nums ${
+                                        idx === 0 ? cfg.corNum : 'text-zinc-500'
+                                      }`}
+                                    >
+                                      {idx + 1}
+                                    </span>
+                                    <JogadorAvatar nome={item.jogador} foto={item.foto} />
+                                    <div className="min-w-0">
+                                      <div className="text-white font-medium truncate">{item.jogador}</div>
+                                      <div className="flex items-center gap-1.5 mt-0.5">
+                                        {item.posicao && (
+                                          <span className="inline-block text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-400 border border-zinc-700/70">
+                                            {item.posicao}
+                                          </span>
+                                        )}
+                                        {sub && (
+                                          <span className="text-[10px] text-zinc-400 tabular-nums truncate">
+                                            {sub}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <span
+                                    className={`font-bold px-2 py-0.5 rounded-md tabular-nums shrink-0 relative ${cfg.corBadge}`}
+                                  >
+                                    {cfg.badgeFn(item)}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-zinc-500">{cfg.vazio}</p>
+                        )}
                       </div>
-                      <span className="font-bold text-zinc-200 bg-zinc-800 px-2 py-0.5 rounded-md tabular-nums shrink-0">
-                        {item.jogos}j
-                      </span>
                     </div>
-                  ))}
-                </div>
-              </div>
+                  );
+                })}
+              </section>
+            );
+          })()}
 
-              {/* Artilharia In Loco */}
-              <div className="bg-[#141414] border border-zinc-800/90 rounded-2xl p-4 sm:p-5">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3 flex items-center gap-2">
-                  <BolaIcon className="w-4 h-4 text-[#D4AF37]" />
-                  Artilheiros
-                </h2>
-                {(stats.artilheiros_vasco || []).length > 0 ? (
-                  <div className="space-y-2 max-h-[268px] overflow-y-auto pr-1">
-                    {stats.artilheiros_vasco!.slice(0, 10).map((item, idx) => (
-                      <div
-                        key={item.jogador}
-                        className={`px-2.5 py-2 rounded-xl bg-zinc-900/80 border flex items-center justify-between gap-2 text-xs ${
-                          idx === 0 ? 'border-emerald-500/40 bg-emerald-500/[0.04]' : 'border-zinc-800'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span
-                            className={`font-bold w-3.5 text-center shrink-0 tabular-nums ${
-                              idx === 0 ? 'text-emerald-400' : 'text-zinc-500'
-                            }`}
-                          >
-                            {idx + 1}
-                          </span>
-                          <JogadorAvatar nome={item.jogador} foto={item.foto} />
-                          <div className="min-w-0">
-                            <div className="text-white font-medium truncate">{item.jogador}</div>
-                            {item.posicao && (
-                              <span className="inline-block text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-400 border border-zinc-700/70">
-                                {item.posicao}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <span className="font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md tabular-nums shrink-0">
-                          {item.gols} {item.gols === 1 ? 'gol' : 'gols'}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-zinc-500">Nenhum gol do Vasco registrado nos jogos presentes.</p>
-                )}
-              </div>
-
-              {/* Assistências In Loco */}
-              <div className="bg-[#141414] border border-zinc-800/90 rounded-2xl p-4 sm:p-5">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3 flex items-center gap-2">
-                  <Award className="w-4 h-4 text-[#D4AF37]" />
-                  Assistentes
-                </h2>
-                {(stats.assistencias_vasco || []).length > 0 ? (
-                  <div className="space-y-2 max-h-[268px] overflow-y-auto pr-1">
-                    {stats.assistencias_vasco!.slice(0, 10).map((item, idx) => (
-                      <div
-                        key={item.jogador}
-                        className={`px-2.5 py-2 rounded-xl bg-zinc-900/80 border flex items-center justify-between gap-2 text-xs ${
-                          idx === 0 ? 'border-[#D4AF37]/40 bg-[#D4AF37]/[0.04]' : 'border-zinc-800'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span
-                            className={`font-bold w-3.5 text-center shrink-0 tabular-nums ${
-                              idx === 0 ? 'text-[#D4AF37]' : 'text-zinc-500'
-                            }`}
-                          >
-                            {idx + 1}
-                          </span>
-                          <JogadorAvatar nome={item.jogador} foto={item.foto} />
-                          <div className="min-w-0">
-                            <div className="text-white font-medium truncate">{item.jogador}</div>
-                            {item.posicao && (
-                              <span className="inline-block text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-400 border border-zinc-700/70">
-                                {item.posicao}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <span className="font-bold text-[#D4AF37] bg-[#D4AF37]/10 px-2 py-0.5 rounded-md tabular-nums shrink-0">
-                          {item.assistencias} {item.assistencias === 1 ? 'ast' : 'asts'}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-zinc-500">
-                    Nenhuma assistência informada pela fonte nos jogos presentes.
-                  </p>
-                )}
-              </div>
-
-              {/* Participações em Gols (G+A) */}
-              <div className="bg-[#141414] border border-zinc-800/90 rounded-2xl p-4 sm:p-5">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3 flex items-center gap-2">
-                  <Flame className="w-4 h-4 text-[#D4AF37]" />
-                  Maior G+A
-                </h2>
-                {(stats.participacoes_gols || []).length > 0 ? (
-                  <div className="space-y-2 max-h-[268px] overflow-y-auto pr-1">
-                    {stats.participacoes_gols!.slice(0, 10).map((item, idx) => (
-                      <div
-                        key={item.jogador}
-                        className={`px-2.5 py-2 rounded-xl bg-zinc-900/80 border flex items-center justify-between gap-2 text-xs ${
-                          idx === 0 ? 'border-[#D4AF37]/40 bg-[#D4AF37]/[0.04]' : 'border-zinc-800'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span
-                            className={`font-bold w-3.5 text-center shrink-0 tabular-nums ${
-                              idx === 0 ? 'text-[#D4AF37]' : 'text-zinc-500'
-                            }`}
-                          >
-                            {idx + 1}
-                          </span>
-                          <JogadorAvatar nome={item.jogador} foto={item.foto} />
-                          <div className="min-w-0">
-                            <div className="text-white font-medium truncate">{item.jogador}</div>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              {item.posicao && (
-                                <span className="inline-block text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-400 border border-zinc-700/70">
-                                  {item.posicao}
-                                </span>
-                              )}
-                              <span className="text-[10px] text-zinc-400 tabular-nums">
-                                {item.gols || 0}G + {item.assistencias || 0}A
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        <span className="font-bold text-white bg-zinc-800 px-2 py-0.5 rounded-md tabular-nums shrink-0">
-                          {item.total} G+A
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-zinc-500">Nenhuma participação em gols registrada.</p>
-                )}
-              </div>
-            </section>
-          )}
-
-        {/* Mapa de Calor de Presença (Heatmap Anual) */}
+        {/* Retrospecto Mensal (Heatmap Anual) */}
         {abaAtiva === 'estatisticas' && stats && (stats.heatmap_presenca || []).length > 0 && (() => {
           const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
           const porMes: Record<number, HeatmapItem[]> = {};
@@ -1344,7 +1453,10 @@ export default function App() {
                   <Calendar className="w-4 h-4 text-[#D4AF37]" />
                   Retrospecto Mensal {filtroAno ? `(${filtroAno})` : ''}
                 </h2>
-                <div className="flex items-center gap-3 text-[11px] text-zinc-400">
+                <div className="flex flex-wrap items-center gap-3 text-[11px] text-zinc-400">
+                  <span className="flex items-center gap-1">
+                    <span className="w-2.5 h-2.5 rounded-sm bg-zinc-800 border border-zinc-700 inline-block" /> 0 jogos
+                  </span>
                   <span className="flex items-center gap-1">
                     <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500 inline-block" /> Vitória
                   </span>
@@ -1370,7 +1482,10 @@ export default function App() {
                       </span>
                       <div className="flex flex-wrap justify-center gap-1">
                         {jogosMes.length === 0 ? (
-                          <span className="w-3 h-3 rounded-sm bg-zinc-800/50 border border-zinc-800" />
+                          <span
+                            title={`${nomeMes}: 0 jogos`}
+                            className="w-3 h-3 rounded-sm bg-zinc-800/50 border border-zinc-800"
+                          />
                         ) : (
                           jogosMes.map((j, jIdx) => {
                             const cor =
@@ -1380,10 +1495,12 @@ export default function App() {
                                 ? 'bg-amber-400 border-amber-300/60'
                                 : 'bg-rose-500 border-rose-400/60';
                             return (
-                              <span
+                              <button
                                 key={`${j.data_jogo}-${jIdx}`}
+                                type="button"
+                                onClick={() => setAbaAtiva('checkins')}
                                 title={`${formatarData(j.data_jogo)} • Vasco ${j.placar} ${j.adversario} (${j.estadio})`}
-                                className={`w-3.5 h-3.5 rounded-sm border transition-transform hover:scale-125 cursor-default ${cor}`}
+                                className={`w-3.5 h-3.5 rounded-sm border transition-transform hover:scale-125 cursor-pointer ${cor}`}
                               />
                             );
                           })

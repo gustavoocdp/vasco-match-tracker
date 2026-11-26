@@ -77,6 +77,18 @@ class EstatisticasResponse(BaseModel):
     maior_vitoria: Optional[dict] = None
     estadio_mais_visitado: Optional[dict] = None
     ultimo_resultado: Optional[dict] = None
+    clean_sheets: int = 0
+    clean_sheets_pct: float = 0.0
+    jogos_sem_marcar: int = 0
+    jogos_sem_marcar_pct: float = 0.0
+    media_gols_pro: float = 0.0
+    media_gols_contra: float = 0.0
+    gols_apos_80: int = 0
+    custo_por_ponto: float = 0.0
+    custo_por_gol: float = 0.0
+    maior_fregues: Optional[dict] = None
+    opcoes_competicoes: list[str] = []
+    opcoes_estadios: list[str] = []
     por_estadio: dict[str, dict]
     por_competicao: dict[str, dict] = {}
     por_mando: dict[str, dict] = {}

@@ -1,6 +1,7 @@
 from datetime import date, datetime
 import json
 import os
+import re
 from typing import List, Optional
 from fastapi import Body, FastAPI, Depends, Header, HTTPException, Response, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -370,11 +371,32 @@ def restaurar_backup_json(payload: dict = Body(...), db: Session = Depends(get_d
 
 
 @app.get("/estatisticas", response_model=EstatisticasResponse, tags=["Analytics"])
-def obter_estatisticas(response: Response, ano: Optional[int] = None, db: Session = Depends(get_db)):
+def obter_estatisticas(
+    response: Response,
+    ano: Optional[int] = None,
+    competicao: Optional[str] = None,
+    estadio: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
     response.headers["Cache-Control"] = "public, s-maxage=60, stale-while-revalidate=300"
-    todas = db.query(Partida).order_by(Partida.data_jogo.desc()).all()
+    todas_base = db.query(Partida).order_by(Partida.data_jogo.desc()).all()
+
+    opcoes_competicoes = sorted(
+        {p.competicao for p in todas_base if p.fui and p.competicao}
+    )
+    opcoes_estadios = sorted(
+        {_normalizar_estadio(p.estadio) for p in todas_base if p.fui and p.estadio}
+    )
+
+    todas = todas_base
     if ano:
         todas = [p for p in todas if p.data_jogo.year == ano]
+
+    presentes_sem_filtro_extra = [p for p in todas if p.fui]
+    if competicao:
+        todas = [p for p in todas if competicao.lower() in (p.competicao or "").lower()]
+    if estadio:
+        todas = [p for p in todas if estadio.lower() in _normalizar_estadio(p.estadio).lower()]
 
     presentes = [p for p in todas if p.fui]
     finalizadas_presentes = [p for p in presentes if (p.status_jogo or "finalizado") == "finalizado"]
@@ -465,6 +487,7 @@ def obter_estatisticas(response: Response, ano: Optional[int] = None, db: Sessio
     gols_por_jogador: dict[str, int] = {}
     assists_por_jogador: dict[str, int] = {}
     info_por_jogador: dict[str, dict] = {}
+    gols_apos_80 = 0
 
     for p in finalizadas_presentes:
         _acumular_grupo(por_estadio, _normalizar_estadio(p.estadio), p)
@@ -485,6 +508,11 @@ def obter_estatisticas(response: Response, ano: Optional[int] = None, db: Sessio
                 jogos_por_jogador[nome] = jogos_por_jogador.get(nome, 0) + 1
 
             for gol in det.get("vasco") or []:
+                min_str = (gol.get("minuto") or "").strip()
+                m_min = re.match(r"^(\d+)", min_str)
+                if m_min and int(m_min.group(1)) >= 80:
+                    gols_apos_80 += 1
+
                 nome_gol = (gol.get("jogador") or "").strip()
                 if not nome_gol or "(GC)" in nome_gol:
                     continue
@@ -551,9 +579,9 @@ def obter_estatisticas(response: Response, ano: Optional[int] = None, db: Sessio
     except Exception:
         elenco_365 = {}
 
-    top_vistos_raw = sorted(jogos_por_jogador.items(), key=lambda x: (-x[1], x[0]))[:10]
-    top_art_raw = sorted(gols_por_jogador.items(), key=lambda x: (-x[1], x[0]))[:10]
-    top_ast_raw = sorted(assists_por_jogador.items(), key=lambda x: (-x[1], x[0]))[:10]
+    top_vistos_raw = sorted(jogos_por_jogador.items(), key=lambda x: (-x[1], x[0]))[:15]
+    top_art_raw = sorted(gols_por_jogador.items(), key=lambda x: (-x[1], x[0]))[:15]
+    top_ast_raw = sorted(assists_por_jogador.items(), key=lambda x: (-x[1], x[0]))[:15]
 
     todos_ga = set(gols_por_jogador.keys()) | set(assists_por_jogador.keys())
     top_ga_raw = sorted(
@@ -563,7 +591,7 @@ def obter_estatisticas(response: Response, ano: Optional[int] = None, db: Sessio
             -gols_por_jogador.get(nome, 0),
             nome,
         ),
-    )[:10]
+    )[:15]
 
     nomes_destaque = (
         [n for n, _ in top_vistos_raw]
@@ -577,7 +605,7 @@ def obter_estatisticas(response: Response, ano: Optional[int] = None, db: Sessio
     except Exception:
         extras_365 = {}
 
-    def _meta_jogador(nome: str) -> dict:
+    def _meta_jogador(nome: str, valor: int) -> dict:
         meta_espn = info_por_jogador.get(nome) or {}
         chave = _norm_nome_jogador(nome)
         meta_365 = elenco_365.get(chave) or extras_365.get(chave) or {}
@@ -585,18 +613,20 @@ def obter_estatisticas(response: Response, ano: Optional[int] = None, db: Sessio
         pos_365 = meta_365.get("pos") or "JOG"
         posicao = pos_365 if pos_espn == "JOG" and pos_365 != "JOG" else pos_espn
         foto = meta_365.get("foto") or meta_espn.get("foto")
-        return {"posicao": posicao, "foto": foto}
+        jogos_j = jogos_por_jogador.get(nome, 0)
+        media = round(valor / jogos_j, 2) if jogos_j > 0 else 0.0
+        return {"posicao": posicao, "foto": foto, "jogos_em_campo": jogos_j, "media_por_jogo": media}
 
     jogadores_mais_vistos = [
-        {"jogador": nome, "jogos": qtd, **_meta_jogador(nome)}
+        {"jogador": nome, "jogos": qtd, **_meta_jogador(nome, qtd)}
         for nome, qtd in top_vistos_raw
     ]
     artilheiros_vasco = [
-        {"jogador": nome, "gols": qtd, **_meta_jogador(nome)}
+        {"jogador": nome, "gols": qtd, **_meta_jogador(nome, qtd)}
         for nome, qtd in top_art_raw
     ]
     assistencias_vasco = [
-        {"jogador": nome, "assistencias": qtd, **_meta_jogador(nome)}
+        {"jogador": nome, "assistencias": qtd, **_meta_jogador(nome, qtd)}
         for nome, qtd in top_ast_raw
     ]
     participacoes_gols = [
@@ -605,10 +635,42 @@ def obter_estatisticas(response: Response, ano: Optional[int] = None, db: Sessio
             "gols": gols_por_jogador.get(nome, 0),
             "assistencias": assists_por_jogador.get(nome, 0),
             "total": gols_por_jogador.get(nome, 0) + assists_por_jogador.get(nome, 0),
-            **_meta_jogador(nome),
+            **_meta_jogador(nome, gols_por_jogador.get(nome, 0) + assists_por_jogador.get(nome, 0)),
         }
         for nome in top_ga_raw
     ]
+
+    clean_sheets = sum(1 for p in finalizadas_presentes if p.gols_adversario == 0)
+    clean_sheets_pct = round((clean_sheets / total) * 100, 1) if total > 0 else 0.0
+    jogos_sem_marcar = sum(1 for p in finalizadas_presentes if p.gols_vasco == 0)
+    jogos_sem_marcar_pct = round((jogos_sem_marcar / total) * 100, 1) if total > 0 else 0.0
+    media_gols_pro = round(gols_pro / total, 2) if total > 0 else 0.0
+    media_gols_contra = round(gols_contra / total, 2) if total > 0 else 0.0
+    custo_por_ponto = round(investimento / pontos_conquistados, 2) if pontos_conquistados > 0 else 0.0
+    custo_por_gol = round(investimento / gols_pro, 2) if gols_pro > 0 else 0.0
+
+    candidatos_fregues = [a for a in ranking_adversarios if a["jogos"] >= 2] or ranking_adversarios
+    maior_fregues = None
+    if candidatos_fregues:
+        top_freg = max(
+            candidatos_fregues,
+            key=lambda a: (
+                (a["vitorias"] * 3 + a["empates"]) / (a["jogos"] * 3),
+                a["vitorias"],
+                a["gols_pro"] - a["gols_contra"],
+            ),
+        )
+        if top_freg["vitorias"] > 0:
+            aprov_freg = round(((top_freg["vitorias"] * 3 + top_freg["empates"]) / (top_freg["jogos"] * 3)) * 100)
+            maior_fregues = {
+                "adversario": top_freg["adversario"],
+                "adversario_logo": top_freg["adversario_logo"],
+                "jogos": top_freg["jogos"],
+                "vitorias": top_freg["vitorias"],
+                "empates": top_freg["empates"],
+                "derrotas": top_freg["derrotas"],
+                "aproveitamento": aprov_freg,
+            }
 
     heatmap_presenca = []
     for p in reversed(finalizadas_presentes):
@@ -624,7 +686,7 @@ def obter_estatisticas(response: Response, ano: Optional[int] = None, db: Sessio
         )
 
     hoje = datetime.now(BRT_TZ).date()
-    elegiveis_checkin = [p for p in todas if p.data_jogo <= hoje]
+    elegiveis_checkin = [p for p in todas_base if p.data_jogo <= hoje]
 
     return {
         "total_jogos": total,
@@ -644,6 +706,18 @@ def obter_estatisticas(response: Response, ano: Optional[int] = None, db: Sessio
         "maior_vitoria": maior_vitoria,
         "estadio_mais_visitado": estadio_mais_visitado,
         "ultimo_resultado": ultimo_resultado,
+        "clean_sheets": clean_sheets,
+        "clean_sheets_pct": clean_sheets_pct,
+        "jogos_sem_marcar": jogos_sem_marcar,
+        "jogos_sem_marcar_pct": jogos_sem_marcar_pct,
+        "media_gols_pro": media_gols_pro,
+        "media_gols_contra": media_gols_contra,
+        "gols_apos_80": gols_apos_80,
+        "custo_por_ponto": custo_por_ponto,
+        "custo_por_gol": custo_por_gol,
+        "maior_fregues": maior_fregues,
+        "opcoes_competicoes": opcoes_competicoes,
+        "opcoes_estadios": opcoes_estadios,
         "por_estadio": por_estadio,
         "por_competicao": por_competicao_ordenado,
         "por_mando": por_mando,
