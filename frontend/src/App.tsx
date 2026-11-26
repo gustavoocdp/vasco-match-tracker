@@ -296,6 +296,7 @@ export default function App() {
     subtitulo?: string;
     logo?: string | null;
     destacarMinuto80?: boolean;
+    destacarJogador?: string;
     jogos: Partida[];
   } | null>(null);
 
@@ -1496,9 +1497,12 @@ export default function App() {
                     : 'text-rose-400/80';
 
                 return (
-                  <div
+                  <button
                     key={adv.adversario}
-                    className={`relative overflow-hidden p-3 rounded-xl bg-zinc-900/80 border flex items-center justify-between gap-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-500/40 ${cardCls}`}
+                    type="button"
+                    onClick={() => abrirModalAdversario(adv)}
+                    title={`Ver jogos contra ${adv.adversario}`}
+                    className={`w-full text-left relative overflow-hidden p-3 rounded-xl bg-zinc-900/80 border flex items-center justify-between gap-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-500/40 cursor-pointer ${cardCls}`}
                   >
                     <div
                       aria-hidden="true"
@@ -1530,15 +1534,10 @@ export default function App() {
                         </div>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => abrirModalAdversario(adv)}
-                      title={`Ver jogos contra ${adv.adversario}`}
-                      className="text-xs font-bold bg-zinc-800/90 hover:bg-zinc-700/90 border border-zinc-700/70 hover:border-[#D4AF37]/50 text-zinc-200 px-2.5 py-1 rounded-lg shrink-0 tabular-nums relative transition cursor-pointer"
-                    >
+                    <span className="text-xs font-bold bg-zinc-800/90 border border-zinc-700/70 text-zinc-200 px-2.5 py-1 rounded-lg shrink-0 tabular-nums relative">
                       {pluralJogos(adv.jogos)} • <span className={corAprovTexto}>{aprov}%</span>
-                    </button>
-                  </div>
+                    </span>
+                  </button>
                 );
               };
 
@@ -1763,11 +1762,48 @@ export default function App() {
                             {visiveis.map((item, idx) => {
                               const pct = Math.round((cfg.valorFn(item) / maxVal) * 100);
                               const sub = cfg.subFn(item);
+                              const ehArtilheiro = cfg.key === 'artilheiros';
+                              const abrirArtilheiro = () => {
+                                if (!ehArtilheiro) return;
+                                const jogosDoArtilheiro = jogosFinalizados.filter((p) =>
+                                  (p.gols_detalhes?.vasco || []).some(
+                                    (g) =>
+                                      !g.jogador.includes('(GC)') &&
+                                      g.jogador.replace(' (P)', '').trim() === item.jogador
+                                  )
+                                );
+                                setJogosModal({
+                                  titulo: `Gols de ${item.jogador}`,
+                                  subtitulo: `${item.gols || 0} ${(item.gols || 0) === 1 ? 'gol' : 'gols'} em ${pluralJogos(jogosDoArtilheiro.length)}`,
+                                  logo: item.foto,
+                                  destacarJogador: item.jogador,
+                                  jogos: jogosDoArtilheiro
+                                });
+                              };
+
                               return (
                                 <div
                                   key={item.jogador}
+                                  onClick={ehArtilheiro ? abrirArtilheiro : undefined}
+                                  role={ehArtilheiro ? 'button' : undefined}
+                                  tabIndex={ehArtilheiro ? 0 : undefined}
+                                  onKeyDown={
+                                    ehArtilheiro
+                                      ? (e) => {
+                                          if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            abrirArtilheiro();
+                                          }
+                                        }
+                                      : undefined
+                                  }
+                                  title={ehArtilheiro ? `Ver jogos com gols de ${item.jogador}` : undefined}
                                   className={`relative overflow-hidden px-3 py-2 rounded-xl bg-zinc-900/80 border flex items-center justify-between gap-2 text-xs ${
                                     idx === 0 ? cfg.destaqueCls : 'border-zinc-800'
+                                  } ${
+                                    ehArtilheiro
+                                      ? 'hover:border-amber-500/40 transition cursor-pointer'
+                                      : ''
                                   }`}
                                 >
                                   <div
@@ -2694,11 +2730,17 @@ export default function App() {
                                   jogosModal.destacarMinuto80 &&
                                   ehVasco &&
                                   g.minutos.some((m) => ehMinuto80Mais(m));
+                                const temJog =
+                                  Boolean(jogosModal.destacarJogador) &&
+                                  ehVasco &&
+                                  !g.jogador.includes('(GC)') &&
+                                  g.jogador.replace(' (P)', '').trim() === jogosModal.destacarJogador;
+                                const destacar = tem80 || temJog;
                                 return (
                                   <div
                                     key={i}
                                     className={`flex items-center gap-1.5 truncate ${
-                                      tem80 ? 'text-[#D4AF37] font-semibold' : 'text-zinc-400'
+                                      destacar ? 'text-[#D4AF37] font-semibold' : 'text-zinc-400'
                                     }`}
                                   >
                                     <BolaIcon className="w-3 h-3 shrink-0 opacity-75" />
@@ -2717,11 +2759,17 @@ export default function App() {
                                   jogosModal.destacarMinuto80 &&
                                   ehVasco &&
                                   g.minutos.some((m) => ehMinuto80Mais(m));
+                                const temJog =
+                                  Boolean(jogosModal.destacarJogador) &&
+                                  ehVasco &&
+                                  !g.jogador.includes('(GC)') &&
+                                  g.jogador.replace(' (P)', '').trim() === jogosModal.destacarJogador;
+                                const destacar = tem80 || temJog;
                                 return (
                                   <div
                                     key={i}
                                     className={`flex items-center justify-end gap-1.5 truncate ${
-                                      tem80 ? 'text-[#D4AF37] font-semibold' : 'text-zinc-400'
+                                      destacar ? 'text-[#D4AF37] font-semibold' : 'text-zinc-400'
                                     }`}
                                   >
                                     <BolaIcon className="w-3 h-3 shrink-0 opacity-75" />
