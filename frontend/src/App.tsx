@@ -981,10 +981,10 @@ export default function App() {
                   <Swords className="w-4 h-4 text-[#D4AF37]" />
                   Adversários Mais Enfrentados
                 </h2>
-                <div className="space-y-2.5">
+                <div className="space-y-2.5 max-h-[372px] overflow-y-auto pr-1">
                   {(() => {
                     const maxJogos = Math.max(...stats.ranking_adversarios.map((a) => a.jogos), 1);
-                    return stats.ranking_adversarios.slice(0, 6).map((adv, idx) => {
+                    return stats.ranking_adversarios.slice(0, 10).map((adv, idx) => {
                       const pct = Math.round((adv.jogos / maxJogos) * 100);
                       const podioCls =
                         idx === 0
@@ -1060,8 +1060,8 @@ export default function App() {
                   <Users className="w-4 h-4 text-[#D4AF37]" />
                   Jogadores Mais Vistos
                 </h2>
-                <div className="space-y-2">
-                  {(stats.jogadores_mais_vistos || []).slice(0, 5).map((item, idx) => (
+                <div className="space-y-2 max-h-[268px] overflow-y-auto pr-1">
+                  {(stats.jogadores_mais_vistos || []).slice(0, 10).map((item, idx) => (
                     <div
                       key={item.jogador}
                       className={`px-2.5 py-2 rounded-xl bg-zinc-900/80 border flex items-center justify-between gap-2 text-xs ${
@@ -1101,8 +1101,8 @@ export default function App() {
                   Artilheiros
                 </h2>
                 {(stats.artilheiros_vasco || []).length > 0 ? (
-                  <div className="space-y-2">
-                    {stats.artilheiros_vasco!.slice(0, 5).map((item, idx) => (
+                  <div className="space-y-2 max-h-[268px] overflow-y-auto pr-1">
+                    {stats.artilheiros_vasco!.slice(0, 10).map((item, idx) => (
                       <div
                         key={item.jogador}
                         className={`px-2.5 py-2 rounded-xl bg-zinc-900/80 border flex items-center justify-between gap-2 text-xs ${
@@ -1145,8 +1145,8 @@ export default function App() {
                   Assistentes
                 </h2>
                 {(stats.assistencias_vasco || []).length > 0 ? (
-                  <div className="space-y-2">
-                    {stats.assistencias_vasco!.slice(0, 5).map((item, idx) => (
+                  <div className="space-y-2 max-h-[268px] overflow-y-auto pr-1">
+                    {stats.assistencias_vasco!.slice(0, 10).map((item, idx) => (
                       <div
                         key={item.jogador}
                         className={`px-2.5 py-2 rounded-xl bg-zinc-900/80 border flex items-center justify-between gap-2 text-xs ${
@@ -1191,8 +1191,8 @@ export default function App() {
                   Maior G+A
                 </h2>
                 {(stats.participacoes_gols || []).length > 0 ? (
-                  <div className="space-y-2">
-                    {stats.participacoes_gols!.slice(0, 5).map((item, idx) => (
+                  <div className="space-y-2 max-h-[268px] overflow-y-auto pr-1">
+                    {stats.participacoes_gols!.slice(0, 10).map((item, idx) => (
                       <div
                         key={item.jogador}
                         className={`px-2.5 py-2 rounded-xl bg-zinc-900/80 border flex items-center justify-between gap-2 text-xs ${

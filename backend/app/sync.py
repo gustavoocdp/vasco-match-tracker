@@ -57,8 +57,8 @@ def _normalizar_estadio(raw_estadio: str) -> str:
         return "Estádio Nilton Santos (Engenhão)"
     if lower == "maracana" or lower == "estadio do maracana":
         return "Maracanã"
-    if "sao januario" in lower:
-        return "Estádio São Januário"
+    if "sao januario" in lower or "são januário" in lower:
+        return "São Januário"
     if "cicero de souza marques" in lower:
         return "Estádio Municipal Cícero de Souza Marques"
     return (nome or "A definir")[:100]

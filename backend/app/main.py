@@ -579,10 +579,10 @@ def obter_estatisticas(ano: Optional[int] = None, db: Session = Depends(get_db))
     )[:10]
 
     nomes_destaque = (
-        [n for n, _ in top_vistos_raw[:5]]
-        + [n for n, _ in top_art_raw[:5]]
-        + [n for n, _ in top_ast_raw[:5]]
-        + top_ga_raw[:5]
+        [n for n, _ in top_vistos_raw]
+        + [n for n, _ in top_art_raw]
+        + [n for n, _ in top_ast_raw]
+        + top_ga_raw
     )
     faltantes_365 = [n for n in dict.fromkeys(nomes_destaque) if _norm_nome_jogador(n) not in elenco_365]
     try:
