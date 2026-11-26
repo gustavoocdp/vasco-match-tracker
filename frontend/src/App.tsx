@@ -542,7 +542,7 @@ export default function App() {
                   1898
                 </span>
               </h1>
-              <p className="text-xs text-zinc-400 hidden sm:block">
+              <p className="text-[11px] sm:text-xs text-zinc-400 leading-snug mt-0.5">
                 Diário de Arquibancada: Check-in Pessoal &amp; Análise de Dados • Por{' '}
                 <a
                   href="https://github.com/gustavoocdp"
@@ -887,9 +887,9 @@ export default function App() {
 
               <div className="lg:col-span-3 relative overflow-hidden bg-[#141414] border border-zinc-800/90 rounded-2xl p-4 sm:p-5">
                 <Wallet className="w-16 h-16 text-white opacity-[0.04] absolute -right-2 -bottom-2 pointer-events-none" />
-                <div className="flex items-center justify-between text-zinc-400 text-xs font-medium mb-2">
-                  <span>INVESTIMENTO</span>
-                  <Wallet className="w-4 h-4 text-zinc-300" />
+                <div className="flex items-center justify-between text-zinc-400 text-xs font-medium mb-2 gap-2">
+                  <span>VALOR GASTO COM INGRESSOS</span>
+                  <Wallet className="w-4 h-4 text-zinc-300 shrink-0" />
                 </div>
                 <div className="text-2xl font-extrabold text-white truncate tabular-nums">
                   {formatarMoeda(stats.investimento_total)}
