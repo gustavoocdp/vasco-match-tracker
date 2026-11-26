@@ -163,7 +163,7 @@ const COMPETICAO_LOGOS: Record<string, string> = {
   libertadores: 'https://a.espncdn.com/i/leaguelogos/soccer/500/58.png'
 };
 
-function CompeticaoLogo({ nome, className = 'w-4 h-4' }: { nome: string; className?: string }) {
+function CompeticaoLogo({ nome, className = 'w-5 h-5' }: { nome: string; className?: string }) {
   const [erro, setErro] = useState(false);
   const norm = (nome || '')
     .toLowerCase()
@@ -254,7 +254,7 @@ function JogadorAvatar({ nome, foto }: { nome: string; foto?: string | null }) {
     .toUpperCase();
 
   return (
-    <div className="w-7 h-7 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700/80 shrink-0 flex items-center justify-center">
+    <div className="w-9 h-9 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700/80 shrink-0 flex items-center justify-center">
       {foto && !erro ? (
         <img
           src={foto}
@@ -263,7 +263,7 @@ function JogadorAvatar({ nome, foto }: { nome: string; foto?: string | null }) {
           className="w-full h-full object-cover object-top"
         />
       ) : (
-        <span className="text-[10px] font-bold text-zinc-300">{iniciais}</span>
+        <span className="text-xs font-bold text-zinc-300">{iniciais}</span>
       )}
     </div>
   );
@@ -953,7 +953,7 @@ export default function App() {
                   >
                     <div className="flex items-center justify-between gap-2 text-[11px] text-zinc-400 w-full">
                       <span className="flex items-center gap-1.5 min-w-0 font-medium text-zinc-300">
-                        <CompeticaoLogo nome={p.competicao} className="w-3.5 h-3.5" />
+                        <CompeticaoLogo nome={p.competicao} className="w-4 h-4" />
                         <span className="truncate">{p.competicao}</span>
                       </span>
                       <span className={`font-bold px-1.5 py-0.5 rounded border text-[10px] shrink-0 ${badge.cls}`}>
@@ -962,13 +962,13 @@ export default function App() {
                     </div>
 
                     <div className="flex items-center justify-between gap-2 bg-zinc-950/70 border border-zinc-800/80 rounded-xl px-3 py-2.5 w-full">
-                      <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
                         {p.mando === 'Fora' ? (
                           p.adversario_logo && (
-                            <img src={p.adversario_logo} alt={p.adversario} className="w-5 h-5 object-contain shrink-0" />
+                            <img src={p.adversario_logo} alt={p.adversario} className="w-6 h-6 object-contain shrink-0" />
                           )
                         ) : (
-                          <img src={VASCO_LOGO_URL} alt="Vasco" className="w-5 h-5 object-contain shrink-0" />
+                          <img src={VASCO_LOGO_URL} alt="Vasco" className="w-6 h-6 object-contain shrink-0" />
                         )}
                         <span className="text-xs font-semibold text-white truncate">
                           {p.mando === 'Fora' ? p.adversario : 'Vasco'}
@@ -985,15 +985,15 @@ export default function App() {
                         </span>
                       </div>
 
-                      <div className="flex items-center justify-end gap-1.5 min-w-0 flex-1">
+                      <div className="flex items-center justify-end gap-2 min-w-0 flex-1">
                         <span className="text-xs font-semibold text-zinc-300 truncate">
                           {p.mando === 'Fora' ? 'Vasco' : p.adversario}
                         </span>
                         {p.mando === 'Fora' ? (
-                          <img src={VASCO_LOGO_URL} alt="Vasco" className="w-5 h-5 object-contain shrink-0" />
+                          <img src={VASCO_LOGO_URL} alt="Vasco" className="w-6 h-6 object-contain shrink-0" />
                         ) : (
                           p.adversario_logo && (
-                            <img src={p.adversario_logo} alt={p.adversario} className="w-5 h-5 object-contain shrink-0" />
+                            <img src={p.adversario_logo} alt={p.adversario} className="w-6 h-6 object-contain shrink-0" />
                           )
                         )}
                       </div>
@@ -1339,8 +1339,8 @@ export default function App() {
                           }
                           className="w-full text-left p-3 rounded-xl bg-zinc-900/80 border border-zinc-800 flex items-center justify-between transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-500/40 cursor-pointer"
                         >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <CompeticaoLogo nome={comp} className="w-5 h-5" />
+                          <div className="flex items-center gap-3 min-w-0">
+                            <CompeticaoLogo nome={comp} className="w-7 h-7" />
                             <div>
                               <div className="font-semibold text-sm text-white">{comp}</div>
                               <div className="text-xs text-zinc-400 mt-0.5 tabular-nums">
@@ -1513,7 +1513,7 @@ export default function App() {
                         <img
                           src={adv.adversario_logo}
                           alt={adv.adversario}
-                          className="w-5 h-5 object-contain shrink-0"
+                          className="w-7 h-7 object-contain shrink-0"
                         />
                       )}
                       <div className="min-w-0 flex-1 max-w-[230px]">
@@ -1752,7 +1752,7 @@ export default function App() {
                         </div>
 
                         {visiveis.length > 0 ? (
-                          <div className="space-y-2 max-h-[268px] overflow-y-auto pr-1">
+                          <div className="space-y-2 max-h-[316px] overflow-y-auto pr-1">
                             {visiveis.map((item, idx) => {
                               const pct = Math.round((cfg.valorFn(item) / maxVal) * 100);
                               const sub = cfg.subFn(item);
@@ -1997,7 +1997,7 @@ export default function App() {
                     <div>
                       <div className="flex items-center justify-between gap-2 text-xs text-zinc-400 mb-2">
                         <div className="flex items-center gap-2 min-w-0">
-                          <CompeticaoLogo nome={p.competicao} className="w-4 h-4" />
+                          <CompeticaoLogo nome={p.competicao} className="w-5 h-5" />
                           <span className="font-medium text-zinc-300 truncate">{p.competicao}</span>
                           {p.fui && abaAtiva === 'fazer-checkin' && (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold shrink-0">
@@ -2017,13 +2017,13 @@ export default function App() {
                       {/* Placar */}
                       <div className="bg-zinc-950/70 border border-zinc-800/80 rounded-xl px-4 py-3 my-2">
                         <div className="flex items-center justify-between gap-2">
-                          <div className="font-bold text-sm sm:text-base text-white flex items-center gap-2 min-w-0 flex-1">
+                          <div className="font-bold text-sm sm:text-base text-white flex items-center gap-2.5 min-w-0 flex-1">
                             {p.mando === 'Fora' ? (
                               p.adversario_logo && (
-                                <img src={p.adversario_logo} alt={p.adversario} className="w-6 h-6 object-contain shrink-0" />
+                                <img src={p.adversario_logo} alt={p.adversario} className="w-7 h-7 sm:w-8 sm:h-8 object-contain shrink-0" />
                               )
                             ) : (
-                              <img src={VASCO_LOGO_URL} alt="Vasco da Gama" className="w-6 h-6 object-contain shrink-0" />
+                              <img src={VASCO_LOGO_URL} alt="Vasco da Gama" className="w-7 h-7 sm:w-8 sm:h-8 object-contain shrink-0" />
                             )}
                             <span className="truncate">{p.mando === 'Fora' ? p.adversario : 'Vasco da Gama'}</span>
                           </div>
@@ -2044,13 +2044,13 @@ export default function App() {
                             </div>
                           )}
 
-                          <div className="font-bold text-sm sm:text-base text-zinc-200 text-right flex items-center justify-end gap-2 min-w-0 flex-1">
+                          <div className="font-bold text-sm sm:text-base text-zinc-200 text-right flex items-center justify-end gap-2.5 min-w-0 flex-1">
                             <span className="truncate">{p.mando === 'Fora' ? 'Vasco da Gama' : p.adversario}</span>
                             {p.mando === 'Fora' ? (
-                              <img src={VASCO_LOGO_URL} alt="Vasco da Gama" className="w-6 h-6 object-contain shrink-0" />
+                              <img src={VASCO_LOGO_URL} alt="Vasco da Gama" className="w-7 h-7 sm:w-8 sm:h-8 object-contain shrink-0" />
                             ) : (
                               p.adversario_logo && (
-                                <img src={p.adversario_logo} alt={p.adversario} className="w-6 h-6 object-contain shrink-0" />
+                                <img src={p.adversario_logo} alt={p.adversario} className="w-7 h-7 sm:w-8 sm:h-8 object-contain shrink-0" />
                               )
                             )}
                           </div>
@@ -2613,7 +2613,7 @@ export default function App() {
                     >
                       <div className="flex items-center justify-between text-xs text-zinc-400">
                         <span className="flex items-center gap-1.5 font-medium text-zinc-300 min-w-0">
-                          <CompeticaoLogo nome={p.competicao} className="w-4 h-4" />
+                          <CompeticaoLogo nome={p.competicao} className="w-5 h-5" />
                           <span className="truncate">{p.competicao}</span>
                         </span>
                         <div className="flex items-center gap-2 shrink-0">
@@ -2632,11 +2632,11 @@ export default function App() {
                                 <img
                                   src={p.adversario_logo}
                                   alt={p.adversario}
-                                  className="w-5 h-5 object-contain shrink-0"
+                                  className="w-7 h-7 object-contain shrink-0"
                                 />
                               )
                             ) : (
-                              <img src={VASCO_LOGO_URL} alt="Vasco" className="w-5 h-5 object-contain shrink-0" />
+                              <img src={VASCO_LOGO_URL} alt="Vasco" className="w-7 h-7 object-contain shrink-0" />
                             )}
                             <span className="text-white truncate">
                               {p.mando === 'Fora' ? p.adversario : 'Vasco da Gama'}
@@ -2658,13 +2658,13 @@ export default function App() {
                               {p.mando === 'Fora' ? 'Vasco da Gama' : p.adversario}
                             </span>
                             {p.mando === 'Fora' ? (
-                              <img src={VASCO_LOGO_URL} alt="Vasco" className="w-5 h-5 object-contain shrink-0" />
+                              <img src={VASCO_LOGO_URL} alt="Vasco" className="w-7 h-7 object-contain shrink-0" />
                             ) : (
                               p.adversario_logo && (
                                 <img
                                   src={p.adversario_logo}
                                   alt={p.adversario}
-                                  className="w-5 h-5 object-contain shrink-0"
+                                  className="w-7 h-7 object-contain shrink-0"
                                 />
                               )
                             )}
