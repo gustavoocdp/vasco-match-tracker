@@ -349,7 +349,7 @@ def enriquecer_gols_partidas(db: Session, partidas: list[Partida], limite: int =
         except Exception:
             return p.id, None
 
-    with ThreadPoolExecutor(max_workers=5) as pool:
+    with ThreadPoolExecutor(max_workers=10) as pool:
         resultados = list(pool.map(_fetch, pendentes))
 
     por_id = {p.id: p for p in pendentes}
@@ -485,3 +485,63 @@ def importar_historico_2019_2024(db: Session, valor_ingresso_padrao: float = 50.
 
     db.commit()
     return {"criados": criados, "atualizados": atualizados}
+
+
+def _adversario_bate(a: str, b: str) -> bool:
+    na = _norm_nome_jogador(a)
+    nb = _norm_nome_jogador(b)
+    if not na or not nb:
+        return False
+    if na in nb or nb in na:
+        return True
+    tokens_a = {t for t in na.split() if len(t) >= 3}
+    tokens_b = {t for t in nb.split() if len(t) >= 3}
+    return bool(tokens_a & tokens_b)
+
+
+def vincular_partidas_manuais_espn(db: Session) -> dict:
+    """Vincula partidas criadas manualmente (sem external_id) aos eventos da ESPN para enriquecer gols e elenco."""
+    sem_id = db.query(Partida).filter(Partida.external_id.is_(None)).all()
+    if not sem_id:
+        return {"vinculados": 0, "pendentes": 0}
+
+    anos = sorted({p.data_jogo.year for p in sem_id})
+    eventos_espn: list[dict] = []
+    for yr in anos:
+        try:
+            evs = _fetch_espn_events(fixture=False, season=yr)
+            for ev in evs:
+                parsed = _parse_espn_event(ev)
+                if parsed:
+                    eventos_espn.append(parsed)
+        except Exception:
+            continue
+
+    existing_ext_ids = {
+        row[0]
+        for row in db.query(Partida.external_id).filter(Partida.external_id.isnot(None)).all()
+    }
+
+    vinculados = 0
+    for p in sem_id:
+        for ev in eventos_espn:
+            if ev["external_id"] in existing_ext_ids:
+                continue
+            if abs((p.data_jogo - ev["data_jogo"]).days) > 1:
+                continue
+            if p.gols_vasco != ev["gols_vasco"] or p.gols_adversario != ev["gols_adversario"]:
+                continue
+            if not _adversario_bate(p.adversario, ev["adversario"]):
+                continue
+
+            p.external_id = ev["external_id"]
+            if not p.adversario_logo and ev["adversario_logo"]:
+                p.adversario_logo = ev["adversario_logo"]
+            existing_ext_ids.add(ev["external_id"])
+            vinculados += 1
+            break
+
+    if vinculados > 0:
+        db.commit()
+
+    return {"vinculados": vinculados, "pendentes": len(sem_id) - vinculados}

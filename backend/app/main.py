@@ -26,6 +26,7 @@ from app.sync import (
     enriquecer_gols_partidas,
     importar_historico_2019_2024,
     sincronizar_jogos_vasco,
+    vincular_partidas_manuais_espn,
 )
 
 Base.metadata.create_all(bind=engine)
@@ -234,6 +235,7 @@ def deletar_partida(partida_id: int, db: Session = Depends(get_db)):
 )
 def sincronizar_manual(season: Optional[int] = None, db: Session = Depends(get_db)):
     try:
+        vincular_partidas_manuais_espn(db)
         return sincronizar_jogos_vasco(db, season=season)
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Falha ao sincronizar jogos: {exc}")
@@ -374,7 +376,13 @@ def obter_estatisticas(ano: Optional[int] = None, db: Session = Depends(get_db))
     presentes = [p for p in todas if p.fui]
     finalizadas_presentes = [p for p in presentes if (p.status_jogo or "finalizado") == "finalizado"]
 
-    enriquecer_gols_partidas(db, finalizadas_presentes, limite=5)
+    if any(p.external_id is None for p in finalizadas_presentes):
+        try:
+            vincular_partidas_manuais_espn(db)
+        except Exception:
+            pass
+
+    enriquecer_gols_partidas(db, finalizadas_presentes, limite=10)
 
     total = len(finalizadas_presentes)
     vitorias = sum(1 for p in finalizadas_presentes if p.gols_vasco > p.gols_adversario)
