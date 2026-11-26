@@ -20,7 +20,9 @@ import {
   Quote,
   Share2,
   Users,
-  Download
+  Download,
+  Sun,
+  Moon
 } from 'lucide-react';
 
 interface GolDetalhe {
@@ -216,6 +218,19 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
   const [aviso, setAviso] = useState('');
+
+  // Tema (Escuro / Claro)
+  const [tema, setTema] = useState<'dark' | 'light'>(() => {
+    const salvo = localStorage.getItem('vascheckin_theme');
+    return salvo === 'light' ? 'light' : 'dark';
+  });
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.remove('dark', 'light');
+    root.classList.add(tema);
+    localStorage.setItem('vascheckin_theme', tema);
+  }, [tema]);
 
   // Autenticação Admin
   const [adminKey, setAdminKey] = useState<string>(() => localStorage.getItem('vasco_admin_key') || '');
@@ -557,6 +572,14 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setTema((t) => (t === 'dark' ? 'light' : 'dark'))}
+              title={tema === 'dark' ? 'Mudar para modo claro' : 'Mudar para modo escuro'}
+              aria-label="Alternar tema"
+              className="p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 hover:text-[#D4AF37] transition cursor-pointer"
+            >
+              {tema === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
             {abaAtiva === 'estatisticas' && stats && stats.total_jogos > 0 && (
               <button
                 onClick={() => setModalShareAberto(true)}
@@ -1980,7 +2003,7 @@ export default function App() {
               </button>
             </div>
 
-            <div className="relative overflow-hidden bg-gradient-to-b from-[#121212] via-[#0B0B0B] to-[#15120A] border border-[#D4AF37]/40 rounded-3xl p-6 aspect-[9/16] flex flex-col justify-between shadow-2xl">
+            <div className="stories-card relative overflow-hidden bg-gradient-to-b from-[#121212] via-[#0B0B0B] to-[#15120A] border border-[#D4AF37]/40 rounded-3xl p-6 aspect-[9/16] flex flex-col justify-between shadow-2xl">
               <div
                 aria-hidden="true"
                 className="pointer-events-none absolute -right-16 top-16 w-[380px] h-24 bg-white opacity-[0.04] -rotate-45"
