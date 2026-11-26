@@ -250,6 +250,7 @@ export default function App() {
   const [filtroCompeticao, setFiltroCompeticao] = useState<string>('');
   const [filtroEstadio, setFiltroEstadio] = useState<string>('');
   const [filtroCheckin, setFiltroCheckin] = useState<FiltroCheckin>('pendentes');
+  const [abaAdversario, setAbaAdversario] = useState<'enfrentados' | 'fregueses' | 'algozes'>('enfrentados');
 
   // Sincronização e Compartilhamento
   const [sincronizando, setSincronizando] = useState(false);
@@ -1209,81 +1210,236 @@ export default function App() {
               )}
             </div>
 
-            {(stats.ranking_adversarios || []).length > 0 && (
-              <div className="bg-[#141414] border border-zinc-800/90 rounded-2xl p-4 sm:p-5">
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                  <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
-                    <Swords className="w-4 h-4 text-[#D4AF37]" />
-                    Adversários Mais Enfrentados
-                  </h2>
-                  {stats.maior_fregues && (
-                    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 tabular-nums">
-                      Maior Freguês: {stats.maior_fregues.adversario} ({stats.maior_fregues.aproveitamento}%)
-                    </span>
-                  )}
-                </div>
-                <div className="space-y-2.5 max-h-[312px] overflow-y-auto pr-1">
-                  {(() => {
-                    const maxJogos = Math.max(...stats.ranking_adversarios.map((a) => a.jogos), 1);
-                    return stats.ranking_adversarios.slice(0, 15).map((adv, idx) => {
-                      const pct = Math.round((adv.jogos / maxJogos) * 100);
-                      const podioCls =
-                        idx === 0
-                          ? 'border-[#D4AF37]/50 bg-[#D4AF37]/[0.04]'
-                          : idx === 1
-                          ? 'border-zinc-500/40'
-                          : idx === 2
-                          ? 'border-amber-700/40'
-                          : 'border-zinc-800';
-                      const rankBadge =
-                        idx === 0
-                          ? 'bg-[#D4AF37] text-black'
-                          : idx === 1
-                          ? 'bg-zinc-300 text-black'
-                          : idx === 2
-                          ? 'bg-amber-700 text-white'
-                          : 'bg-zinc-800 text-zinc-400';
+            {(stats.ranking_adversarios || []).length > 0 && (() => {
+              const calcAprov = (a: AdversarioStats) =>
+                a.jogos > 0 ? Math.round(((a.vitorias * 3 + a.empates) / (a.jogos * 3)) * 100) : 0;
 
-                      return (
-                        <div
-                          key={adv.adversario}
-                          className={`relative overflow-hidden p-3 rounded-xl bg-zinc-900/80 border flex items-center justify-between gap-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-500/40 ${podioCls}`}
-                        >
-                          <div
-                            aria-hidden="true"
-                            style={{ width: `${pct}%` }}
-                            className="absolute inset-y-0 left-0 bg-white/[0.03] pointer-events-none"
-                          />
-                          <div className="flex items-center gap-2.5 min-w-0 relative">
-                            <span
-                              className={`text-[11px] font-extrabold w-5 h-5 rounded-md flex items-center justify-center shrink-0 tabular-nums ${rankBadge}`}
-                            >
-                              {idx + 1}
-                            </span>
-                            {adv.adversario_logo && (
-                              <img
-                                src={adv.adversario_logo}
-                                alt={adv.adversario}
-                                className="w-5 h-5 object-contain shrink-0"
-                              />
-                            )}
-                            <div className="min-w-0">
-                              <div className="font-semibold text-sm text-white truncate">{adv.adversario}</div>
-                              <div className="text-xs text-zinc-400 tabular-nums">
-                                {adv.vitorias}V • {adv.empates}E • {adv.derrotas}D • Gols: {adv.gols_pro}x{adv.gols_contra}
-                              </div>
-                            </div>
-                          </div>
-                          <span className="text-xs font-bold text-zinc-200 bg-zinc-800/90 px-2.5 py-1 rounded-lg shrink-0 tabular-nums relative">
-                            {pluralJogos(adv.jogos)}
-                          </span>
+              const ehClassicoCarioca = (nome: string) => {
+                const n = nome.toLowerCase();
+                return n.includes('flamengo') || n.includes('fluminense') || n.includes('botafogo');
+              };
+
+              const classicos = stats.ranking_adversarios.filter((a) => ehClassicoCarioca(a.adversario));
+              const classicosResumo = classicos.reduce(
+                (acc, a) => ({
+                  jogos: acc.jogos + a.jogos,
+                  v: acc.v + a.vitorias,
+                  e: acc.e + a.empates,
+                  d: acc.d + a.derrotas
+                }),
+                { jogos: 0, v: 0, e: 0, d: 0 }
+              );
+              const aprovClassicos =
+                classicosResumo.jogos > 0
+                  ? Math.round(((classicosResumo.v * 3 + classicosResumo.e) / (classicosResumo.jogos * 3)) * 100)
+                  : 0;
+
+              const listaBase = [...stats.ranking_adversarios];
+              let listaExibida: AdversarioStats[] = [];
+
+              if (abaAdversario === 'enfrentados') {
+                listaExibida = listaBase.slice(0, 15);
+              } else if (abaAdversario === 'fregueses') {
+                const elegiveis = listaBase.filter((a) => a.jogos >= 2);
+                const pool = elegiveis.length > 0 ? elegiveis : listaBase;
+                listaExibida = pool
+                  .filter((a) => a.vitorias > 0)
+                  .sort(
+                    (a, b) =>
+                      calcAprov(b) - calcAprov(a) ||
+                      b.vitorias - a.vitorias ||
+                      b.gols_pro - b.gols_contra - (a.gols_pro - a.gols_contra)
+                  )
+                  .slice(0, 15);
+              } else {
+                listaExibida = listaBase
+                  .filter((a) => a.derrotas > 0)
+                  .sort(
+                    (a, b) =>
+                      b.derrotas - a.derrotas ||
+                      calcAprov(a) - calcAprov(b) ||
+                      a.gols_pro - a.gols_contra - (b.gols_pro - b.gols_contra)
+                  )
+                  .slice(0, 15);
+              }
+
+              const maxJogos = Math.max(...stats.ranking_adversarios.map((a) => a.jogos), 1);
+
+              const renderLinhaAdv = (adv: AdversarioStats, idx: number, mostrarPodio: boolean) => {
+                const aprov = calcAprov(adv);
+                const pctBar = Math.round((adv.jogos / maxJogos) * 100);
+
+                const bordaSemantica =
+                  aprov > 50
+                    ? 'border-emerald-500/35'
+                    : aprov === 50
+                    ? 'border-amber-500/30'
+                    : 'border-rose-500/30';
+
+                const cardCls = mostrarPodio
+                  ? idx === 0
+                    ? 'border-[#D4AF37]/50 bg-[#D4AF37]/[0.04]'
+                    : idx === 1
+                    ? 'border-zinc-500/40'
+                    : idx === 2
+                    ? 'border-amber-700/40'
+                    : bordaSemantica
+                  : bordaSemantica;
+
+                const rankBadge = mostrarPodio
+                  ? idx === 0
+                    ? 'bg-[#D4AF37] text-black'
+                    : idx === 1
+                    ? 'bg-zinc-300 text-black'
+                    : idx === 2
+                    ? 'bg-amber-700 text-white'
+                    : 'bg-zinc-800 text-zinc-400'
+                  : 'bg-zinc-800 text-zinc-400';
+
+                const pillCls =
+                  aprov > 50
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                    : aprov === 50
+                    ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                    : 'bg-rose-500/10 text-rose-400 border-rose-500/30';
+
+                return (
+                  <div
+                    key={adv.adversario}
+                    className={`relative overflow-hidden p-3 rounded-xl bg-zinc-900/80 border flex items-center justify-between gap-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-500/40 ${cardCls}`}
+                  >
+                    <div
+                      aria-hidden="true"
+                      style={{ width: `${pctBar}%` }}
+                      className="absolute inset-y-0 left-0 bg-white/[0.03] pointer-events-none"
+                    />
+                    <div className="flex items-center gap-2.5 min-w-0 relative">
+                      <span
+                        className={`text-[11px] font-extrabold w-5 h-5 rounded-md flex items-center justify-center shrink-0 tabular-nums ${rankBadge}`}
+                      >
+                        {idx + 1}
+                      </span>
+                      {adv.adversario_logo && (
+                        <img
+                          src={adv.adversario_logo}
+                          alt={adv.adversario}
+                          className="w-5 h-5 object-contain shrink-0"
+                        />
+                      )}
+                      <div className="min-w-0">
+                        <div className="font-semibold text-sm text-white truncate">{adv.adversario}</div>
+                        <div className="text-xs text-zinc-400 tabular-nums">
+                          {adv.vitorias}V • {adv.empates}E • {adv.derrotas}D • Gols: {adv.gols_pro}x{adv.gols_contra}
                         </div>
-                      );
-                    });
-                  })()}
+                      </div>
+                    </div>
+                    <span
+                      className={`text-xs font-bold border px-2.5 py-1 rounded-lg shrink-0 tabular-nums relative ${pillCls}`}
+                    >
+                      {pluralJogos(adv.jogos)} • {aprov}%
+                    </span>
+                  </div>
+                );
+              };
+
+              const classicosLista = listaExibida.filter((a) => ehClassicoCarioca(a.adversario));
+              const outrosLista = listaExibida.filter((a) => !ehClassicoCarioca(a.adversario));
+
+              return (
+                <div className="bg-[#141414] border border-zinc-800/90 rounded-2xl p-4 sm:p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
+                      <Swords className="w-4 h-4 text-[#D4AF37]" />
+                      Retrospecto por Adversário
+                    </h2>
+                    {stats.maior_fregues && (
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 tabular-nums">
+                        Maior Freguês: {stats.maior_fregues.adversario} ({stats.maior_fregues.vitorias}V •{' '}
+                        {stats.maior_fregues.aproveitamento}%)
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Seletor segmentado de ordenação */}
+                  <div className="flex flex-wrap items-center gap-1.5 mb-3 bg-zinc-900/90 p-1 rounded-xl border border-zinc-800 w-fit">
+                    <button
+                      type="button"
+                      onClick={() => setAbaAdversario('enfrentados')}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition cursor-pointer ${
+                        abaAdversario === 'enfrentados'
+                          ? 'bg-[#D4AF37] text-black'
+                          : 'text-zinc-400 hover:text-white'
+                      }`}
+                    >
+                      Mais Enfrentados
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAbaAdversario('fregueses')}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition cursor-pointer ${
+                        abaAdversario === 'fregueses'
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                          : 'text-zinc-400 hover:text-white'
+                      }`}
+                    >
+                      Maiores Fregueses
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAbaAdversario('algozes')}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition cursor-pointer ${
+                        abaAdversario === 'algozes'
+                          ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                          : 'text-zinc-400 hover:text-white'
+                      }`}
+                    >
+                      Algozes
+                    </button>
+                  </div>
+
+                  <div className="space-y-2.5 max-h-[340px] overflow-y-auto pr-1">
+                    {abaAdversario === 'enfrentados' ? (
+                      <>
+                        {classicosLista.length > 0 && (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between text-[11px] text-zinc-400 px-1 pt-0.5">
+                              <span className="font-semibold uppercase tracking-wider text-zinc-500">
+                                Clássicos Cariocas
+                              </span>
+                              <span className="tabular-nums font-medium text-zinc-300">
+                                {pluralJogos(classicosResumo.jogos)} • {classicosResumo.v}V {classicosResumo.e}E{' '}
+                                {classicosResumo.d}D •{' '}
+                                <span className="text-[#D4AF37] font-bold">{aprovClassicos}%</span>
+                              </span>
+                            </div>
+                            {classicosLista.map((adv, idx) => renderLinhaAdv(adv, idx, false))}
+                          </div>
+                        )}
+
+                        {outrosLista.length > 0 && (
+                          <div className="space-y-2 pt-1">
+                            {classicosLista.length > 0 && (
+                              <div className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 px-1 pt-1">
+                                Interestaduais / Outros
+                              </div>
+                            )}
+                            {outrosLista.map((adv, idx) => renderLinhaAdv(adv, idx, false))}
+                          </div>
+                        )}
+                      </>
+                    ) : listaExibida.length > 0 ? (
+                      listaExibida.map((adv, idx) =>
+                        renderLinhaAdv(adv, idx, abaAdversario === 'fregueses')
+                      )
+                    ) : (
+                      <p className="text-xs text-zinc-500 py-4 text-center">
+                        Nenhum adversário encontrado neste critério.
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </section>
         )}
 
