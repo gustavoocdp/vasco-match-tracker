@@ -155,6 +155,42 @@ const API_URL =
 
 const VASCO_LOGO_URL = 'https://a.espncdn.com/i/teamlogos/soccer/500/3454.png';
 
+const COMPETICAO_LOGOS: Record<string, string> = {
+  brasileirao: 'https://a.espncdn.com/i/leaguelogos/soccer/500/85.png',
+  'copa do brasil': 'https://a.espncdn.com/i/leaguelogos/soccer/500/528.png',
+  carioca: 'https://a.espncdn.com/i/leaguelogos/soccer/500/2265.png',
+  'sul-americana': 'https://a.espncdn.com/i/leaguelogos/soccer/500/1208.png',
+  libertadores: 'https://a.espncdn.com/i/leaguelogos/soccer/500/58.png'
+};
+
+function CompeticaoLogo({ nome, className = 'w-4 h-4' }: { nome: string; className?: string }) {
+  const [erro, setErro] = useState(false);
+  const norm = (nome || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+  let url: string | undefined;
+  if (norm.includes('brasileir') || norm.includes('serie a')) url = COMPETICAO_LOGOS.brasileirao;
+  else if (norm.includes('copa do brasil')) url = COMPETICAO_LOGOS['copa do brasil'];
+  else if (norm.includes('carioca')) url = COMPETICAO_LOGOS.carioca;
+  else if (norm.includes('sul-americana') || norm.includes('sudamericana')) url = COMPETICAO_LOGOS['sul-americana'];
+  else if (norm.includes('libertadores')) url = COMPETICAO_LOGOS.libertadores;
+
+  if (!url || erro) {
+    return <Trophy className={`${className} text-[#D4AF37] shrink-0`} />;
+  }
+
+  return (
+    <img
+      src={url}
+      alt={nome}
+      onError={() => setErro(true)}
+      className={`${className} object-contain shrink-0`}
+    />
+  );
+}
+
 async function fetchComRetry(input: string, init?: RequestInit, tentativas = 2): Promise<Response> {
   let ultimoErro: unknown;
   for (let i = 0; i <= tentativas; i++) {
@@ -916,13 +952,16 @@ export default function App() {
                     className={`snap-start text-left bg-zinc-900/80 border border-zinc-800 border-l-4 ${borderLeftCls} rounded-xl p-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-500/40 flex flex-col justify-between gap-2.5 cursor-pointer`}
                   >
                     <div className="flex items-center justify-between gap-2 text-[11px] text-zinc-400 w-full">
-                      <span className="truncate font-medium text-zinc-300">{p.competicao}</span>
+                      <span className="flex items-center gap-1.5 min-w-0 font-medium text-zinc-300">
+                        <CompeticaoLogo nome={p.competicao} className="w-3.5 h-3.5" />
+                        <span className="truncate">{p.competicao}</span>
+                      </span>
                       <span className={`font-bold px-1.5 py-0.5 rounded border text-[10px] shrink-0 ${badge.cls}`}>
                         {badge.label}
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between gap-2 bg-zinc-950/60 border border-zinc-800/70 rounded-lg px-3 py-2 w-full">
+                    <div className="flex items-center justify-between gap-2 bg-zinc-950/70 border border-zinc-800/80 rounded-xl px-3 py-2.5 w-full">
                       <div className="flex items-center gap-1.5 min-w-0 flex-1">
                         {p.mando === 'Fora' ? (
                           p.adversario_logo && (
@@ -961,7 +1000,10 @@ export default function App() {
                     </div>
 
                     <div className="flex items-center justify-between text-[11px] text-zinc-400 w-full">
-                      <span className="truncate pr-2">{p.estadio}</span>
+                      <span className="flex items-center gap-1 truncate pr-2">
+                        <MapPin className="w-3 h-3 text-[#D4AF37] shrink-0" />
+                        <span className="truncate">{p.estadio}</span>
+                      </span>
                       <span className="tabular-nums shrink-0">{formatarData(p.data_jogo)}</span>
                     </div>
                   </button>
@@ -1297,10 +1339,13 @@ export default function App() {
                           }
                           className="w-full text-left p-3 rounded-xl bg-zinc-900/80 border border-zinc-800 flex items-center justify-between transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-500/40 cursor-pointer"
                         >
-                          <div>
-                            <div className="font-semibold text-sm text-white">{comp}</div>
-                            <div className="text-xs text-zinc-400 mt-0.5 tabular-nums">
-                              {pluralJogos(dados.jogos)} • {dados.vitorias}V • {dados.empates}E • {dados.derrotas}D
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <CompeticaoLogo nome={comp} className="w-5 h-5" />
+                            <div>
+                              <div className="font-semibold text-sm text-white">{comp}</div>
+                              <div className="text-xs text-zinc-400 mt-0.5 tabular-nums">
+                                {pluralJogos(dados.jogos)} • {dados.vitorias}V • {dados.empates}E • {dados.derrotas}D
+                              </div>
                             </div>
                           </div>
                           <span className="text-sm font-bold text-[#D4AF37] bg-[#D4AF37]/10 px-2.5 py-1 rounded-lg tabular-nums shrink-0">
@@ -1936,10 +1981,12 @@ export default function App() {
                     ? 'border-l-[#D4AF37]'
                     : 'border-l-rose-500';
 
-                const golsMandante =
-                  p.mando === 'Fora' ? p.gols_detalhes?.adversario || [] : p.gols_detalhes?.vasco || [];
-                const golsVisitante =
-                  p.mando === 'Fora' ? p.gols_detalhes?.vasco || [] : p.gols_detalhes?.adversario || [];
+                const golsMandante = agruparGolsPorJogador(
+                  p.mando === 'Fora' ? p.gols_detalhes?.adversario || [] : p.gols_detalhes?.vasco || []
+                );
+                const golsVisitante = agruparGolsPorJogador(
+                  p.mando === 'Fora' ? p.gols_detalhes?.vasco || [] : p.gols_detalhes?.adversario || []
+                );
                 const temGolsDetalhes = golsMandante.length > 0 || golsVisitante.length > 0;
 
                 return (
@@ -1949,20 +1996,18 @@ export default function App() {
                   >
                     <div>
                       <div className="flex items-center justify-between gap-2 text-xs text-zinc-400 mb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-zinc-300">{p.competicao}</span>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <CompeticaoLogo nome={p.competicao} className="w-4 h-4" />
+                          <span className="font-medium text-zinc-300 truncate">{p.competicao}</span>
                           {p.fui && abaAtiva === 'fazer-checkin' && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold shrink-0">
                               <Check className="w-3 h-3" />
                               FUI
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="flex items-center gap-1 tabular-nums">
-                            <Calendar className="w-3.5 h-3.5" />
-                            {formatarData(p.data_jogo)}
-                          </span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="tabular-nums">{formatarData(p.data_jogo)}</span>
                           <span className={`font-bold px-2 py-0.5 rounded border text-[11px] ${badge.cls}`}>
                             {badge.label}
                           </span>
@@ -1970,7 +2015,7 @@ export default function App() {
                       </div>
 
                       {/* Placar */}
-                      <div className="bg-zinc-900/90 border border-zinc-800/80 rounded-xl px-4 py-3 my-2">
+                      <div className="bg-zinc-950/70 border border-zinc-800/80 rounded-xl px-4 py-3 my-2">
                         <div className="flex items-center justify-between gap-2">
                           <div className="font-bold text-sm sm:text-base text-white flex items-center gap-2 min-w-0 flex-1">
                             {p.mando === 'Fora' ? (
@@ -1988,7 +2033,7 @@ export default function App() {
                               VS
                             </div>
                           ) : (
-                            <div className="flex items-center gap-2.5 text-2xl font-bold tracking-wider shrink-0 tabular-nums px-2">
+                            <div className="flex items-center gap-2.5 text-2xl font-black tracking-wider shrink-0 tabular-nums px-2">
                               <span className={p.mando === 'Fora' ? 'text-zinc-400' : 'text-white'}>
                                 {p.mando === 'Fora' ? p.gols_adversario : p.gols_vasco}
                               </span>
@@ -1999,7 +2044,7 @@ export default function App() {
                             </div>
                           )}
 
-                          <div className="font-bold text-sm sm:text-base text-zinc-300 text-right flex items-center justify-end gap-2 min-w-0 flex-1">
+                          <div className="font-bold text-sm sm:text-base text-zinc-200 text-right flex items-center justify-end gap-2 min-w-0 flex-1">
                             <span className="truncate">{p.mando === 'Fora' ? 'Vasco da Gama' : p.adversario}</span>
                             {p.mando === 'Fora' ? (
                               <img src={VASCO_LOGO_URL} alt="Vasco da Gama" className="w-6 h-6 object-contain shrink-0" />
@@ -2011,25 +2056,28 @@ export default function App() {
                           </div>
                         </div>
 
-                        {/* Autores dos gols (estilo placar) */}
+                        {/* Autores dos gols agrupados */}
                         {temGolsDetalhes && (
-                          <div className="mt-3 pt-2.5 border-t border-zinc-800/80 grid grid-cols-[1fr_auto_1fr] items-start gap-2 text-[11px] text-zinc-400">
-                            <div className="space-y-0.5 text-left min-w-0">
+                          <div className="mt-3 pt-2.5 border-t border-zinc-800/80 grid grid-cols-2 gap-3 text-[11px] text-zinc-400">
+                            <div className="space-y-1 text-left min-w-0">
                               {golsMandante.map((g, i) => (
-                                <div key={i} className="truncate">
-                                  <span className="text-zinc-300">{g.jogador}</span>{' '}
-                                  {g.minuto && <span className="text-zinc-500 tabular-nums">{g.minuto}</span>}
+                                <div key={i} className="flex items-center gap-1.5 truncate">
+                                  <BolaIcon className="w-3 h-3 shrink-0 opacity-75" />
+                                  <span className="truncate">
+                                    {g.jogador}
+                                    {g.minutos.length > 0 ? ` (${g.minutos.join(', ')})` : ''}
+                                  </span>
                                 </div>
                               ))}
                             </div>
-                            <div className="pt-0.5 text-zinc-500">
-                              <BolaIcon className="w-3.5 h-3.5" />
-                            </div>
-                            <div className="space-y-0.5 text-right min-w-0">
+                            <div className="space-y-1 text-right min-w-0">
                               {golsVisitante.map((g, i) => (
-                                <div key={i} className="truncate">
-                                  <span className="text-zinc-300">{g.jogador}</span>{' '}
-                                  {g.minuto && <span className="text-zinc-500 tabular-nums">{g.minuto}</span>}
+                                <div key={i} className="flex items-center justify-end gap-1.5 truncate">
+                                  <BolaIcon className="w-3 h-3 shrink-0 opacity-75" />
+                                  <span className="truncate">
+                                    {g.jogador}
+                                    {g.minutos.length > 0 ? ` (${g.minutos.join(', ')})` : ''}
+                                  </span>
                                 </div>
                               ))}
                             </div>
@@ -2047,7 +2095,7 @@ export default function App() {
 
                     <div className="pt-2.5 border-t border-dashed border-zinc-800 flex items-center justify-between gap-2 text-xs text-zinc-400">
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
-                        <span className="flex items-center gap-1 text-zinc-300 truncate">
+                        <span className="flex items-center gap-1.5 text-zinc-300 truncate">
                           <MapPin className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
                           <span className="truncate">{p.estadio}</span>
                         </span>
@@ -2055,7 +2103,8 @@ export default function App() {
 
                       <div className="flex items-center gap-2 shrink-0">
                         {p.fui && (
-                          <span className="font-semibold text-zinc-200 tabular-nums">
+                          <span className="flex items-center gap-1.5 font-semibold text-zinc-200 tabular-nums">
+                            <Ticket className="w-3.5 h-3.5 text-[#D4AF37]" />
                             {formatarMoeda(p.custo_total)}
                           </span>
                         )}
@@ -2563,8 +2612,11 @@ export default function App() {
                       className={`bg-zinc-900/80 border border-zinc-800/90 border-l-4 ${borderLeftCls} rounded-2xl p-3.5 space-y-2.5`}
                     >
                       <div className="flex items-center justify-between text-xs text-zinc-400">
-                        <span className="font-medium text-zinc-300">{p.competicao}</span>
-                        <div className="flex items-center gap-2">
+                        <span className="flex items-center gap-1.5 font-medium text-zinc-300 min-w-0">
+                          <CompeticaoLogo nome={p.competicao} className="w-4 h-4" />
+                          <span className="truncate">{p.competicao}</span>
+                        </span>
+                        <div className="flex items-center gap-2 shrink-0">
                           <span className="tabular-nums">{formatarData(p.data_jogo)}</span>
                           <span className={`font-bold px-2 py-0.5 rounded border text-[10px] ${badge.cls}`}>
                             {badge.label}
@@ -2592,11 +2644,11 @@ export default function App() {
                           </div>
 
                           <div className="text-xl font-black tabular-nums px-2 shrink-0">
-                            <span className={p.mando === 'Fora' ? 'text-[#D4AF37]/80' : 'text-white'}>
+                            <span className={p.mando === 'Fora' ? 'text-zinc-400' : 'text-white'}>
                               {p.mando === 'Fora' ? p.gols_adversario : p.gols_vasco}
                             </span>
                             <span className="text-zinc-600 text-sm font-normal mx-1.5">×</span>
-                            <span className={p.mando === 'Fora' ? 'text-white' : 'text-[#D4AF37]/80'}>
+                            <span className={p.mando === 'Fora' ? 'text-white' : 'text-zinc-400'}>
                               {p.mando === 'Fora' ? p.gols_vasco : p.gols_adversario}
                             </span>
                           </div>
