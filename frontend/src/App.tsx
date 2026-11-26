@@ -721,7 +721,12 @@ export default function App() {
                   <span>HISTÓRICO IN LOCO</span>
                   <Ticket className="w-4 h-4 text-[#D4AF37]" />
                 </div>
-                <div className="text-3xl font-extrabold text-white tabular-nums">{stats.total_jogos}</div>
+                <div className="text-3xl font-extrabold text-white tabular-nums flex items-baseline gap-1.5">
+                  <span>{stats.total_jogos}</span>
+                  <span className="text-sm font-semibold text-zinc-400">
+                    {stats.total_jogos === 1 ? 'jogo' : 'jogos'}
+                  </span>
+                </div>
                 <div className="mt-2 flex items-center gap-2 text-xs tabular-nums">
                   <span className="text-emerald-400 font-semibold">{stats.vitorias}V</span>
                   <span className="text-zinc-600">•</span>

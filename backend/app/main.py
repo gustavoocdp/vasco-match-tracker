@@ -21,8 +21,10 @@ from app.security import verificar_admin
 from app.sync import (
     BRT_TZ,
     _norm_nome_jogador,
+    _normalizar_estadio,
     buscar_elenco_365scores,
     buscar_gols_partida_espn,
+    buscar_jogadores_365_em_lote,
     enriquecer_gols_partidas,
     importar_historico_2019_2024,
     sincronizar_jogos_vasco,
@@ -73,7 +75,7 @@ def formatar_partida(p: Partida) -> dict:
         "adversario": p.adversario,
         "adversario_logo": p.adversario_logo,
         "mando": p.mando,
-        "estadio": p.estadio,
+        "estadio": _normalizar_estadio(p.estadio),
         "setor": p.setor,
         "gols_vasco": p.gols_vasco,
         "gols_adversario": p.gols_adversario,
@@ -378,11 +380,17 @@ def obter_estatisticas(ano: Optional[int] = None, db: Session = Depends(get_db))
 
     if any(p.external_id is None for p in finalizadas_presentes):
         try:
-            vincular_partidas_manuais_espn(db)
+            res_vinc = vincular_partidas_manuais_espn(db)
+            if res_vinc.get("vinculados") or res_vinc.get("mesclados"):
+                todas = db.query(Partida).order_by(Partida.data_jogo.desc()).all()
+                if ano:
+                    todas = [p for p in todas if p.data_jogo.year == ano]
+                presentes = [p for p in todas if p.fui]
+                finalizadas_presentes = [p for p in presentes if (p.status_jogo or "finalizado") == "finalizado"]
         except Exception:
             pass
 
-    enriquecer_gols_partidas(db, finalizadas_presentes, limite=10)
+    enriquecer_gols_partidas(db, finalizadas_presentes, limite=12)
 
     total = len(finalizadas_presentes)
     vitorias = sum(1 for p in finalizadas_presentes if p.gols_vasco > p.gols_adversario)
@@ -472,7 +480,7 @@ def obter_estatisticas(ano: Optional[int] = None, db: Session = Depends(get_db))
     info_por_jogador: dict[str, dict] = {}
 
     for p in finalizadas_presentes:
-        _acumular_grupo(por_estadio, p.estadio, p)
+        _acumular_grupo(por_estadio, _normalizar_estadio(p.estadio), p)
         _acumular_grupo(por_competicao, p.competicao, p)
         _acumular_grupo(por_mando, p.mando, p)
 
@@ -556,9 +564,36 @@ def obter_estatisticas(ano: Optional[int] = None, db: Session = Depends(get_db))
     except Exception:
         elenco_365 = {}
 
+    top_vistos_raw = sorted(jogos_por_jogador.items(), key=lambda x: (-x[1], x[0]))[:10]
+    top_art_raw = sorted(gols_por_jogador.items(), key=lambda x: (-x[1], x[0]))[:10]
+    top_ast_raw = sorted(assists_por_jogador.items(), key=lambda x: (-x[1], x[0]))[:10]
+
+    todos_ga = set(gols_por_jogador.keys()) | set(assists_por_jogador.keys())
+    top_ga_raw = sorted(
+        todos_ga,
+        key=lambda nome: (
+            -(gols_por_jogador.get(nome, 0) + assists_por_jogador.get(nome, 0)),
+            -gols_por_jogador.get(nome, 0),
+            nome,
+        ),
+    )[:10]
+
+    nomes_destaque = (
+        [n for n, _ in top_vistos_raw[:5]]
+        + [n for n, _ in top_art_raw[:5]]
+        + [n for n, _ in top_ast_raw[:5]]
+        + top_ga_raw[:5]
+    )
+    faltantes_365 = [n for n in dict.fromkeys(nomes_destaque) if _norm_nome_jogador(n) not in elenco_365]
+    try:
+        extras_365 = buscar_jogadores_365_em_lote(faltantes_365) if faltantes_365 else {}
+    except Exception:
+        extras_365 = {}
+
     def _meta_jogador(nome: str) -> dict:
         meta_espn = info_por_jogador.get(nome) or {}
-        meta_365 = elenco_365.get(_norm_nome_jogador(nome)) or {}
+        chave = _norm_nome_jogador(nome)
+        meta_365 = elenco_365.get(chave) or extras_365.get(chave) or {}
         pos_espn = meta_espn.get("pos") or "JOG"
         pos_365 = meta_365.get("pos") or "JOG"
         posicao = pos_365 if pos_espn == "JOG" and pos_365 != "JOG" else pos_espn
@@ -567,18 +602,16 @@ def obter_estatisticas(ano: Optional[int] = None, db: Session = Depends(get_db))
 
     jogadores_mais_vistos = [
         {"jogador": nome, "jogos": qtd, **_meta_jogador(nome)}
-        for nome, qtd in sorted(jogos_por_jogador.items(), key=lambda x: (-x[1], x[0]))[:10]
+        for nome, qtd in top_vistos_raw
     ]
     artilheiros_vasco = [
         {"jogador": nome, "gols": qtd, **_meta_jogador(nome)}
-        for nome, qtd in sorted(gols_por_jogador.items(), key=lambda x: (-x[1], x[0]))[:10]
+        for nome, qtd in top_art_raw
     ]
     assistencias_vasco = [
         {"jogador": nome, "assistencias": qtd, **_meta_jogador(nome)}
-        for nome, qtd in sorted(assists_por_jogador.items(), key=lambda x: (-x[1], x[0]))[:10]
+        for nome, qtd in top_ast_raw
     ]
-
-    todos_ga = set(gols_por_jogador.keys()) | set(assists_por_jogador.keys())
     participacoes_gols = [
         {
             "jogador": nome,
@@ -587,10 +620,8 @@ def obter_estatisticas(ano: Optional[int] = None, db: Session = Depends(get_db))
             "total": gols_por_jogador.get(nome, 0) + assists_por_jogador.get(nome, 0),
             **_meta_jogador(nome),
         }
-        for nome in todos_ga
+        for nome in top_ga_raw
     ]
-    participacoes_gols.sort(key=lambda x: (-x["total"], -x["gols"], x["jogador"]))
-    participacoes_gols = participacoes_gols[:10]
 
     heatmap_presenca = []
     for p in reversed(finalizadas_presentes):
@@ -601,7 +632,7 @@ def obter_estatisticas(ano: Optional[int] = None, db: Session = Depends(get_db))
                 "resultado": res_h,
                 "adversario": p.adversario,
                 "placar": f"{p.gols_vasco} x {p.gols_adversario}",
-                "estadio": p.estadio,
+                "estadio": _normalizar_estadio(p.estadio),
             }
         )
 

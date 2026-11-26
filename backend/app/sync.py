@@ -4,6 +4,7 @@ import json
 import re
 from typing import Optional
 import unicodedata
+import urllib.parse
 import urllib.request
 from sqlalchemy.orm import Session
 
@@ -432,6 +433,58 @@ def buscar_elenco_365scores() -> dict[str, dict]:
     return mapa
 
 
+_CACHE_365_BUSCA: dict[str, Optional[dict]] = {}
+
+
+def buscar_jogadores_365_em_lote(nomes: list[str]) -> dict[str, dict]:
+    """Busca foto e posição na 365Scores para jogadores fora do elenco atual (com cache)."""
+    faltantes = []
+    resultado: dict[str, dict] = {}
+    for nome in nomes:
+        chave = _norm_nome_jogador(nome)
+        if chave in _CACHE_365_BUSCA:
+            if _CACHE_365_BUSCA[chave]:
+                resultado[chave] = _CACHE_365_BUSCA[chave]  # type: ignore[assignment]
+        else:
+            faltantes.append((nome, chave))
+
+    if not faltantes:
+        return resultado
+
+    def _buscar_um(item: tuple[str, str]):
+        nome, chave = item
+        try:
+            url = (
+                "https://webws.365scores.com/web/search/?appTypeId=5&langId=31&query="
+                + urllib.parse.quote(nome)
+            )
+            req = urllib.request.Request(url, headers={"User-Agent": "VasCheckin/2.0"})
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            athletes = data.get("athletes") or []
+            if not athletes:
+                return chave, None
+            a = athletes[0]
+            aid = a.get("id")
+            if not aid:
+                return chave, None
+            ver = a.get("imageVersion") or 1
+            foto = f"https://imagecache.365scores.com/image/upload/f_png,w_120,h_120,c_limit,q_auto:eco,dpr_2/v{ver}/Athletes/{aid}"
+            pos_raw = (a.get("position") or {}).get("name") or a.get("positionName") or ""
+            pos = _norm_pos_365(pos_raw)
+            return chave, {"foto": foto, "pos": pos}
+        except Exception:
+            return chave, None
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        for chave, info in pool.map(_buscar_um, faltantes[:12]):
+            _CACHE_365_BUSCA[chave] = info
+            if info:
+                resultado[chave] = info
+
+    return resultado
+
+
 HISTORICO_2019_2024_IDS = {
     2019: {"537072"},
     2020: {"561190", "582777"},
@@ -517,16 +570,15 @@ def vincular_partidas_manuais_espn(db: Session) -> dict:
         except Exception:
             continue
 
-    existing_ext_ids = {
-        row[0]
-        for row in db.query(Partida.external_id).filter(Partida.external_id.isnot(None)).all()
+    by_ext_id = {
+        p.external_id: p
+        for p in db.query(Partida).filter(Partida.external_id.isnot(None)).all()
     }
 
     vinculados = 0
+    mesclados = 0
     for p in sem_id:
         for ev in eventos_espn:
-            if ev["external_id"] in existing_ext_ids:
-                continue
             if abs((p.data_jogo - ev["data_jogo"]).days) > 1:
                 continue
             if p.gols_vasco != ev["gols_vasco"] or p.gols_adversario != ev["gols_adversario"]:
@@ -534,14 +586,33 @@ def vincular_partidas_manuais_espn(db: Session) -> dict:
             if not _adversario_bate(p.adversario, ev["adversario"]):
                 continue
 
-            p.external_id = ev["external_id"]
-            if not p.adversario_logo and ev["adversario_logo"]:
-                p.adversario_logo = ev["adversario_logo"]
-            existing_ext_ids.add(ev["external_id"])
-            vinculados += 1
+            synced_row = by_ext_id.get(ev["external_id"])
+            if synced_row and synced_row.id != p.id:
+                # Mescla dados do check-in manual no registro sincronizado da ESPN e remove duplicata
+                synced_row.fui = bool(synced_row.fui or p.fui)
+                if not synced_row.valor_ingresso and p.valor_ingresso:
+                    synced_row.valor_ingresso = p.valor_ingresso
+                if not synced_row.valor_extras and p.valor_extras:
+                    synced_row.valor_extras = p.valor_extras
+                if not synced_row.observacoes and p.observacoes:
+                    synced_row.observacoes = p.observacoes
+                db.delete(p)
+                mesclados += 1
+            else:
+                p.external_id = ev["external_id"]
+                p.estadio = ev["estadio"]
+                p.competicao = ev["competicao"]
+                if not p.adversario_logo and ev["adversario_logo"]:
+                    p.adversario_logo = ev["adversario_logo"]
+                by_ext_id[ev["external_id"]] = p
+                vinculados += 1
             break
 
-    if vinculados > 0:
+    if vinculados > 0 or mesclados > 0:
         db.commit()
 
-    return {"vinculados": vinculados, "pendentes": len(sem_id) - vinculados}
+    return {
+        "vinculados": vinculados,
+        "mesclados": mesclados,
+        "pendentes": len(sem_id) - vinculados - mesclados,
+    }
