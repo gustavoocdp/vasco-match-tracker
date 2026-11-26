@@ -919,7 +919,7 @@ export default function App() {
           );
         })()}
 
-        {/* Últimos Check-ins (Carrossel horizontal de 4 por vez no topo da aba Estatísticas) */}
+        {/* Últimos Check-ins (Carrossel horizontal com cards completos no topo da aba Estatísticas) */}
         {abaAtiva === 'estatisticas' && partidas.length > 0 && (
           <section className="bg-[#141414] border border-zinc-800/90 rounded-2xl p-4 sm:p-5">
             <div className="flex items-center justify-between gap-2 mb-3">
@@ -935,7 +935,7 @@ export default function App() {
               </button>
             </div>
 
-            <div className="grid grid-flow-col auto-cols-[85%] sm:auto-cols-[calc((100%-12px)/2)] lg:auto-cols-[calc((100%-36px)/4)] gap-3 overflow-x-auto pb-2 snap-x snap-mandatory">
+            <div className="grid grid-flow-col auto-cols-[92%] md:auto-cols-[calc((100%-16px)/2)] gap-4 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-thin">
               {partidas.map((p) => {
                 const badge = badgeStatus(p);
                 const borderLeftCls =
@@ -947,67 +947,114 @@ export default function App() {
                     ? 'border-l-[#D4AF37]'
                     : 'border-l-rose-500';
 
+                const golsMandante = agruparGolsPorJogador(
+                  p.mando === 'Fora' ? p.gols_detalhes?.adversario || [] : p.gols_detalhes?.vasco || []
+                );
+                const golsVisitante = agruparGolsPorJogador(
+                  p.mando === 'Fora' ? p.gols_detalhes?.vasco || [] : p.gols_detalhes?.adversario || []
+                );
+                const temGolsDetalhes = golsMandante.length > 0 || golsVisitante.length > 0;
+
                 return (
                   <button
                     key={`ultimo-${p.id}`}
                     type="button"
                     onClick={() => setAbaAtiva('checkins')}
-                    className={`snap-start text-left bg-zinc-900/80 border border-zinc-800 border-l-4 ${borderLeftCls} rounded-xl p-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-500/40 flex flex-col justify-between gap-2.5 cursor-pointer`}
+                    className={`snap-start text-left bg-zinc-900/80 border border-zinc-800 border-l-4 ${borderLeftCls} rounded-2xl p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-500/40 flex flex-col justify-between gap-3 cursor-pointer`}
                   >
-                    <div className="flex items-center justify-between gap-2 text-[11px] text-zinc-400 w-full">
-                      <span className="flex items-center gap-1.5 min-w-0 font-medium text-zinc-300">
-                        <CompeticaoLogo nome={p.competicao} className="w-4 h-4" />
-                        <span className="truncate">{p.competicao}</span>
-                      </span>
-                      <span className={`font-bold px-1.5 py-0.5 rounded border text-[10px] shrink-0 ${badge.cls}`}>
-                        {badge.label}
-                      </span>
+                    <div className="w-full">
+                      <div className="flex items-center justify-between gap-2 text-xs text-zinc-400 mb-2">
+                        <span className="flex items-center gap-2 min-w-0 font-medium text-zinc-300">
+                          <CompeticaoLogo nome={p.competicao} className="w-5 h-5" />
+                          <span className="truncate">{p.competicao}</span>
+                        </span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="tabular-nums">{formatarData(p.data_jogo)}</span>
+                          <span className={`font-bold px-2 py-0.5 rounded border text-[11px] shrink-0 ${badge.cls}`}>
+                            {badge.label}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="bg-zinc-950/70 border border-zinc-800/80 rounded-xl px-4 py-3 w-full">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1 font-bold text-sm text-white">
+                            {p.mando === 'Fora' ? (
+                              p.adversario_logo && (
+                                <img src={p.adversario_logo} alt={p.adversario} className="w-7 h-7 object-contain shrink-0" />
+                              )
+                            ) : (
+                              <img src={VASCO_LOGO_URL} alt="Vasco da Gama" className="w-7 h-7 object-contain shrink-0" />
+                            )}
+                            <span className="truncate">
+                              {p.mando === 'Fora' ? p.adversario : 'Vasco da Gama'}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2 text-xl font-black tracking-wider shrink-0 tabular-nums px-2">
+                            <span className={p.mando === 'Fora' ? 'text-zinc-400' : 'text-white'}>
+                              {p.mando === 'Fora' ? p.gols_adversario : p.gols_vasco}
+                            </span>
+                            <span className="text-zinc-600 text-sm font-normal">×</span>
+                            <span className={p.mando === 'Fora' ? 'text-white' : 'text-zinc-400'}>
+                              {p.mando === 'Fora' ? p.gols_vasco : p.gols_adversario}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-end gap-2.5 min-w-0 flex-1 font-bold text-sm text-zinc-200 text-right">
+                            <span className="truncate">
+                              {p.mando === 'Fora' ? 'Vasco da Gama' : p.adversario}
+                            </span>
+                            {p.mando === 'Fora' ? (
+                              <img src={VASCO_LOGO_URL} alt="Vasco da Gama" className="w-7 h-7 object-contain shrink-0" />
+                            ) : (
+                              p.adversario_logo && (
+                                <img src={p.adversario_logo} alt={p.adversario} className="w-7 h-7 object-contain shrink-0" />
+                              )
+                            )}
+                          </div>
+                        </div>
+
+                        {temGolsDetalhes && (
+                          <div className="mt-3 pt-2.5 border-t border-zinc-800/80 grid grid-cols-2 gap-3 text-[11px] text-zinc-400">
+                            <div className="space-y-1 text-left min-w-0">
+                              {golsMandante.map((g, i) => (
+                                <div key={i} className="flex items-center gap-1.5 truncate">
+                                  <BolaIcon className="w-3 h-3 shrink-0 opacity-75" />
+                                  <span className="truncate">
+                                    {g.jogador}
+                                    {g.minutos.length > 0 ? ` (${g.minutos.join(', ')})` : ''}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="space-y-1 text-right min-w-0">
+                              {golsVisitante.map((g, i) => (
+                                <div key={i} className="flex items-center justify-end gap-1.5 truncate">
+                                  <BolaIcon className="w-3 h-3 shrink-0 opacity-75" />
+                                  <span className="truncate">
+                                    {g.jogador}
+                                    {g.minutos.length > 0 ? ` (${g.minutos.join(', ')})` : ''}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="flex items-center justify-between gap-2 bg-zinc-950/70 border border-zinc-800/80 rounded-xl px-3 py-2.5 w-full">
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
-                        {p.mando === 'Fora' ? (
-                          p.adversario_logo && (
-                            <img src={p.adversario_logo} alt={p.adversario} className="w-6 h-6 object-contain shrink-0" />
-                          )
-                        ) : (
-                          <img src={VASCO_LOGO_URL} alt="Vasco" className="w-6 h-6 object-contain shrink-0" />
-                        )}
-                        <span className="text-xs font-semibold text-white truncate">
-                          {p.mando === 'Fora' ? p.adversario : 'Vasco'}
-                        </span>
-                      </div>
-
-                      <div className="text-sm font-extrabold tabular-nums shrink-0 px-1">
-                        <span className={p.mando === 'Fora' ? 'text-zinc-400' : 'text-white'}>
-                          {p.mando === 'Fora' ? p.gols_adversario : p.gols_vasco}
-                        </span>
-                        <span className="text-zinc-600 mx-1">×</span>
-                        <span className={p.mando === 'Fora' ? 'text-white' : 'text-zinc-400'}>
-                          {p.mando === 'Fora' ? p.gols_vasco : p.gols_adversario}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-end gap-2 min-w-0 flex-1">
-                        <span className="text-xs font-semibold text-zinc-300 truncate">
-                          {p.mando === 'Fora' ? 'Vasco' : p.adversario}
-                        </span>
-                        {p.mando === 'Fora' ? (
-                          <img src={VASCO_LOGO_URL} alt="Vasco" className="w-6 h-6 object-contain shrink-0" />
-                        ) : (
-                          p.adversario_logo && (
-                            <img src={p.adversario_logo} alt={p.adversario} className="w-6 h-6 object-contain shrink-0" />
-                          )
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between text-[11px] text-zinc-400 w-full">
-                      <span className="flex items-center gap-1 truncate pr-2">
-                        <MapPin className="w-3 h-3 text-[#D4AF37] shrink-0" />
+                    <div className="flex items-center justify-between text-xs text-zinc-400 w-full pt-1 border-t border-dashed border-zinc-800/80">
+                      <span className="flex items-center gap-1.5 truncate pr-2">
+                        <MapPin className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
                         <span className="truncate">{p.estadio}</span>
                       </span>
-                      <span className="tabular-nums shrink-0">{formatarData(p.data_jogo)}</span>
+                      {p.valor_ingresso ? (
+                        <span className="flex items-center gap-1.5 font-semibold text-zinc-200 tabular-nums shrink-0">
+                          <Ticket className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
+                          {formatarMoeda(p.valor_ingresso)}
+                        </span>
+                      ) : null}
                     </div>
                   </button>
                 );
