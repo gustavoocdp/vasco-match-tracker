@@ -253,7 +253,12 @@ export default function App() {
   const [filtroCheckin, setFiltroCheckin] = useState<FiltroCheckin>('pendentes');
   const [abaAdversario, setAbaAdversario] = useState<'enfrentados' | 'fregueses' | 'algozes'>('fregueses');
   const [buscaAdversario, setBuscaAdversario] = useState('');
-  const [adversarioModal, setAdversarioModal] = useState<AdversarioStats | null>(null);
+  const [jogosModal, setJogosModal] = useState<{
+    titulo: string;
+    subtitulo?: string;
+    logo?: string | null;
+    jogos: Partida[];
+  } | null>(null);
 
   // Sincronização e Compartilhamento
   const [sincronizando, setSincronizando] = useState(false);
@@ -548,6 +553,46 @@ export default function App() {
   };
 
   const pluralJogos = (n: number) => `${n} ${n === 1 ? 'jogo' : 'jogos'}`;
+
+  const jogosFinalizados = partidas.filter((p) => p.status_jogo === 'finalizado');
+
+  const abrirModalAdversario = (adv: AdversarioStats) => {
+    const aprovAdv =
+      adv.jogos > 0 ? Math.round(((adv.vitorias * 3 + adv.empates) / (adv.jogos * 3)) * 100) : 0;
+    setJogosModal({
+      titulo: `Vasco × ${adv.adversario}`,
+      subtitulo: `${pluralJogos(adv.jogos)} • ${adv.vitorias}V • ${adv.empates}E • ${adv.derrotas}D • ${aprovAdv}%`,
+      logo: adv.adversario_logo,
+      jogos: jogosFinalizados.filter((p) => p.adversario.toLowerCase() === adv.adversario.toLowerCase())
+    });
+  };
+
+  const abrirModalSequencia = (tipo: 'invicta' | 'vitorias') => {
+    const cronologicos = [...jogosFinalizados].reverse();
+    let melhor: Partida[] = [];
+    let atual: Partida[] = [];
+    for (const p of cronologicos) {
+      const ok = tipo === 'invicta' ? p.gols_vasco >= p.gols_adversario : p.gols_vasco > p.gols_adversario;
+      if (ok) {
+        atual.push(p);
+        if (atual.length >= melhor.length) melhor = [...atual];
+      } else {
+        atual = [];
+      }
+    }
+    setJogosModal({
+      titulo: tipo === 'invicta' ? 'Maior Sequência Invicta' : 'Maior Sequência de Vitórias',
+      subtitulo: `${pluralJogos(melhor.length)} consecutivos`,
+      jogos: [...melhor].reverse()
+    });
+  };
+
+  const jogosApos80 = jogosFinalizados.filter((p) =>
+    (p.gols_detalhes?.vasco || []).some((g) => {
+      const m = /^(\d+)/.exec((g.minuto || '').trim());
+      return m ? Number(m[1]) >= 80 : false;
+    })
+  );
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-zinc-100 pb-16">
@@ -1021,14 +1066,24 @@ export default function App() {
               </div>
             </div>
 
-            <div className="bg-[#141414] border border-zinc-800/80 rounded-xl px-4 py-3">
+            <button
+              type="button"
+              onClick={() =>
+                setJogosModal({
+                  titulo: "Gols no Finalzinho (80'+)",
+                  subtitulo: `${pluralJogos(jogosApos80.length)} com gol do Vasco após os 35' do 2ºT`,
+                  jogos: jogosApos80
+                })
+              }
+              className="text-left bg-[#141414] border border-zinc-800/80 hover:border-amber-500/40 rounded-xl px-4 py-3 transition cursor-pointer"
+            >
               <div className="text-[11px] uppercase tracking-wider text-zinc-400 font-medium">
                 Gols no Finalzinho (80&apos;+)
               </div>
               <div className="text-sm font-bold text-[#D4AF37] mt-1 tabular-nums">
                 {stats.gols_apos_80 ?? 0} {(stats.gols_apos_80 ?? 0) === 1 ? 'gol' : 'gols'} após 35&apos; 2ºT
               </div>
-            </div>
+            </button>
 
             <div className="bg-[#141414] border border-zinc-800/80 rounded-xl px-4 py-3">
               <div className="text-[11px] uppercase tracking-wider text-zinc-400 font-medium">
@@ -1061,9 +1116,17 @@ export default function App() {
               {Object.entries(stats.por_estadio).map(([estadio, dados]) => {
                 const aprov = Math.round(((dados.vitorias * 3 + dados.empates) / (dados.jogos * 3)) * 100);
                 return (
-                  <div
+                  <button
                     key={estadio}
-                    className="p-3.5 rounded-xl bg-zinc-900/80 border border-zinc-800 flex items-center justify-between transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-500/40"
+                    type="button"
+                    onClick={() =>
+                      setJogosModal({
+                        titulo: estadio,
+                        subtitulo: `${pluralJogos(dados.jogos)} • ${dados.vitorias}V • ${dados.empates}E • ${dados.derrotas}D • ${aprov}%`,
+                        jogos: jogosFinalizados.filter((p) => p.estadio === estadio)
+                      })
+                    }
+                    className="text-left p-3.5 rounded-xl bg-zinc-900/80 border border-zinc-800 flex items-center justify-between transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-500/40 cursor-pointer"
                   >
                     <div className="min-w-0 pr-3">
                       <div className="font-semibold text-sm text-white truncate">{estadio}</div>
@@ -1074,7 +1137,7 @@ export default function App() {
                     <span className="text-sm font-bold text-[#D4AF37] bg-[#D4AF37]/10 px-2.5 py-1 rounded-lg tabular-nums shrink-0">
                       {aprov}%
                     </span>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -1089,7 +1152,11 @@ export default function App() {
               Recordes Pessoais
             </h2>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              <div className="p-3.5 rounded-xl bg-zinc-900/80 border border-zinc-800">
+              <button
+                type="button"
+                onClick={() => abrirModalSequencia('invicta')}
+                className="text-left p-3.5 rounded-xl bg-zinc-900/80 border border-zinc-800 hover:border-amber-500/40 transition cursor-pointer"
+              >
                 <div className="text-[11px] text-zinc-400 uppercase font-medium">Maior Sequência Invicta</div>
                 <div className="text-xl font-extrabold text-white mt-1 tabular-nums">
                   {pluralJogos(stats.maior_sequencia_invicta)}
@@ -1097,9 +1164,13 @@ export default function App() {
                 <div className="text-[11px] text-zinc-500 mt-0.5 tabular-nums">
                   Atual: {pluralJogos(stats.sequencia_invicta_atual)}
                 </div>
-              </div>
+              </button>
 
-              <div className="p-3.5 rounded-xl bg-zinc-900/80 border border-zinc-800">
+              <button
+                type="button"
+                onClick={() => abrirModalSequencia('vitorias')}
+                className="text-left p-3.5 rounded-xl bg-zinc-900/80 border border-zinc-800 hover:border-amber-500/40 transition cursor-pointer"
+              >
                 <div className="text-[11px] text-zinc-400 uppercase font-medium">Maior Sequência de Vitórias</div>
                 <div className="text-xl font-extrabold text-emerald-400 mt-1 tabular-nums">
                   {pluralJogos(stats.maior_sequencia_vitorias)}
@@ -1107,7 +1178,7 @@ export default function App() {
                 <div className="text-[11px] text-zinc-500 mt-0.5 tabular-nums">
                   Atual: {pluralJogos(stats.sequencia_vitorias_atual)}
                 </div>
-              </div>
+              </button>
 
               <div className="p-3.5 rounded-xl bg-zinc-900/80 border border-zinc-800">
                 <div className="text-[11px] text-zinc-400 uppercase font-medium">Maior Vitória</div>
@@ -1158,9 +1229,17 @@ export default function App() {
                     {Object.entries(stats.por_competicao).map(([comp, dados]) => {
                       const aprov = Math.round(((dados.vitorias * 3 + dados.empates) / (dados.jogos * 3)) * 100);
                       return (
-                        <div
+                        <button
                           key={comp}
-                          className="p-3 rounded-xl bg-zinc-900/80 border border-zinc-800 flex items-center justify-between transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-500/40"
+                          type="button"
+                          onClick={() =>
+                            setJogosModal({
+                              titulo: comp,
+                              subtitulo: `${pluralJogos(dados.jogos)} • ${dados.vitorias}V • ${dados.empates}E • ${dados.derrotas}D • ${aprov}%`,
+                              jogos: jogosFinalizados.filter((p) => p.competicao === comp)
+                            })
+                          }
+                          className="w-full text-left p-3 rounded-xl bg-zinc-900/80 border border-zinc-800 flex items-center justify-between transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-500/40 cursor-pointer"
                         >
                           <div>
                             <div className="font-semibold text-sm text-white">{comp}</div>
@@ -1172,7 +1251,7 @@ export default function App() {
                             <span className="text-[11px] font-medium text-[#D4AF37]/80 mr-1.5">Aproveitamento</span>
                             {aprov}%
                           </span>
-                        </div>
+                        </button>
                       );
                     })}
                   </div>
@@ -1350,7 +1429,7 @@ export default function App() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => setAdversarioModal(adv)}
+                      onClick={() => abrirModalAdversario(adv)}
                       title={`Ver jogos contra ${adv.adversario}`}
                       className="text-xs font-bold bg-zinc-800/90 hover:bg-zinc-700/90 border border-zinc-700/70 hover:border-[#D4AF37]/50 text-zinc-200 px-2.5 py-1 rounded-lg shrink-0 tabular-nums relative transition cursor-pointer"
                     >
@@ -1695,7 +1774,15 @@ export default function App() {
                               <button
                                 key={`${j.data_jogo}-${jIdx}`}
                                 type="button"
-                                onClick={() => setAbaAtiva('checkins')}
+                                onClick={() =>
+                                  setJogosModal({
+                                    titulo: `Jogos em ${nomeMes}${filtroAno ? `/${filtroAno}` : ''}`,
+                                    subtitulo: pluralJogos(jogosMes.length),
+                                    jogos: jogosFinalizados.filter(
+                                      (p) => Number(p.data_jogo.split('-')[1]) - 1 === idx
+                                    )
+                                  })
+                                }
                                 title={`${formatarData(j.data_jogo)} • Vasco ${j.placar} ${j.adversario} (${j.estadio})`}
                                 className={`w-3.5 h-3.5 rounded-sm border transition-transform hover:scale-125 cursor-pointer ${cor}`}
                               />
@@ -2361,123 +2448,105 @@ export default function App() {
         </div>
       )}
 
-      {/* Modal Jogos contra Adversário */}
-      {adversarioModal && (() => {
-        const jogosAdv = partidas.filter(
-          (p) =>
-            p.adversario.toLowerCase() === adversarioModal.adversario.toLowerCase() &&
-            p.status_jogo === 'finalizado'
-        );
-        const aprovAdv =
-          adversarioModal.jogos > 0
-            ? Math.round(
-                ((adversarioModal.vitorias * 3 + adversarioModal.empates) / (adversarioModal.jogos * 3)) * 100
-              )
-            : 0;
-
-        return (
+      {/* Modal Unificado de Lista de Jogos */}
+      {jogosModal && (
+        <div
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => setJogosModal(null)}
+        >
           <div
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={() => setAdversarioModal(null)}
+            className="bg-[#141414] border border-zinc-800 rounded-2xl max-w-lg w-full max-h-[85vh] flex flex-col overflow-hidden shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
           >
-            <div
-              className="bg-[#141414] border border-zinc-800 rounded-2xl max-w-lg w-full max-h-[85vh] flex flex-col overflow-hidden shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="p-4 sm:p-5 border-b border-zinc-800 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  {adversarioModal.adversario_logo && (
-                    <img
-                      src={adversarioModal.adversario_logo}
-                      alt={adversarioModal.adversario}
-                      className="w-8 h-8 object-contain shrink-0"
-                    />
+            <div className="p-4 sm:p-5 border-b border-zinc-800 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                {jogosModal.logo && (
+                  <img
+                    src={jogosModal.logo}
+                    alt={jogosModal.titulo}
+                    className="w-8 h-8 object-contain shrink-0"
+                  />
+                )}
+                <div className="min-w-0">
+                  <h3 className="font-bold text-white text-base truncate">{jogosModal.titulo}</h3>
+                  {jogosModal.subtitulo && (
+                    <p className="text-xs text-zinc-400 tabular-nums">{jogosModal.subtitulo}</p>
                   )}
-                  <div className="min-w-0">
-                    <h3 className="font-bold text-white text-base truncate">
-                      Vasco × {adversarioModal.adversario}
-                    </h3>
-                    <p className="text-xs text-zinc-400 tabular-nums">
-                      {pluralJogos(adversarioModal.jogos)} • {adversarioModal.vitorias}V •{' '}
-                      {adversarioModal.empates}E • {adversarioModal.derrotas}D •{' '}
-                      <span className="text-[#D4AF37] font-semibold">{aprovAdv}%</span>
-                    </p>
-                  </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setAdversarioModal(null)}
-                  className="text-zinc-400 hover:text-white cursor-pointer p-1"
-                >
-                  <X className="w-5 h-5" />
-                </button>
               </div>
+              <button
+                type="button"
+                onClick={() => setJogosModal(null)}
+                className="text-zinc-400 hover:text-white cursor-pointer p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-              <div className="p-4 sm:p-5 overflow-y-auto space-y-2.5">
-                {jogosAdv.length > 0 ? (
-                  jogosAdv.map((p) => {
-                    const badge = badgeStatus(p);
-                    const borderLeftCls =
-                      p.resultado === 'V'
-                        ? 'border-l-emerald-500'
-                        : p.resultado === 'E'
-                        ? 'border-l-[#D4AF37]'
-                        : 'border-l-rose-500';
-                    return (
-                      <div
-                        key={`adv-jogo-${p.id}`}
-                        className={`bg-zinc-900/80 border border-zinc-800 border-l-4 ${borderLeftCls} rounded-xl p-3 space-y-2`}
-                      >
-                        <div className="flex items-center justify-between text-[11px] text-zinc-400">
-                          <span className="font-medium text-zinc-300">{p.competicao}</span>
-                          <div className="flex items-center gap-2">
-                            <span className="tabular-nums">{formatarData(p.data_jogo)}</span>
-                            <span className={`font-bold px-1.5 py-0.5 rounded border text-[10px] ${badge.cls}`}>
-                              {badge.label}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center justify-between bg-zinc-950/60 border border-zinc-800/70 rounded-lg px-3 py-2 text-xs font-bold">
-                          <span className="text-white truncate flex-1">
-                            {p.mando === 'Fora' ? p.adversario : 'Vasco da Gama'}
-                          </span>
-                          <span className="text-base font-extrabold tabular-nums px-2 shrink-0">
-                            <span className={p.mando === 'Fora' ? 'text-zinc-400' : 'text-white'}>
-                              {p.mando === 'Fora' ? p.gols_adversario : p.gols_vasco}
-                            </span>
-                            <span className="text-zinc-600 mx-1">×</span>
-                            <span className={p.mando === 'Fora' ? 'text-white' : 'text-zinc-400'}>
-                              {p.mando === 'Fora' ? p.gols_vasco : p.gols_adversario}
-                            </span>
-                          </span>
-                          <span className="text-zinc-300 truncate flex-1 text-right">
-                            {p.mando === 'Fora' ? 'Vasco da Gama' : p.adversario}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center justify-between text-[11px] text-zinc-400">
-                          <span className="flex items-center gap-1 truncate">
-                            <MapPin className="w-3 h-3 text-[#D4AF37] shrink-0" />
-                            <span className="truncate">{p.estadio}</span>
-                          </span>
-                          <span className="tabular-nums font-medium text-zinc-300 shrink-0">
-                            {formatarMoeda(p.custo_total)}
+            <div className="p-4 sm:p-5 overflow-y-auto space-y-2.5">
+              {jogosModal.jogos.length > 0 ? (
+                jogosModal.jogos.map((p) => {
+                  const badge = badgeStatus(p);
+                  const borderLeftCls =
+                    p.resultado === 'V'
+                      ? 'border-l-emerald-500'
+                      : p.resultado === 'E'
+                      ? 'border-l-[#D4AF37]'
+                      : 'border-l-rose-500';
+                  return (
+                    <div
+                      key={`modal-jogo-${p.id}`}
+                      className={`bg-zinc-900/80 border border-zinc-800 border-l-4 ${borderLeftCls} rounded-xl p-3 space-y-2`}
+                    >
+                      <div className="flex items-center justify-between text-[11px] text-zinc-400">
+                        <span className="font-medium text-zinc-300">{p.competicao}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="tabular-nums">{formatarData(p.data_jogo)}</span>
+                          <span className={`font-bold px-1.5 py-0.5 rounded border text-[10px] ${badge.cls}`}>
+                            {badge.label}
                           </span>
                         </div>
                       </div>
-                    );
-                  })
-                ) : (
-                  <p className="text-xs text-zinc-500 text-center py-6">
-                    Nenhum jogo encontrado para este recorte.
-                  </p>
-                )}
-              </div>
+
+                      <div className="flex items-center justify-between bg-zinc-950/60 border border-zinc-800/70 rounded-lg px-3 py-2 text-xs font-bold">
+                        <span className="text-white truncate flex-1">
+                          {p.mando === 'Fora' ? p.adversario : 'Vasco da Gama'}
+                        </span>
+                        <span className="text-base font-extrabold tabular-nums px-2 shrink-0">
+                          <span className={p.mando === 'Fora' ? 'text-zinc-400' : 'text-white'}>
+                            {p.mando === 'Fora' ? p.gols_adversario : p.gols_vasco}
+                          </span>
+                          <span className="text-zinc-600 mx-1">×</span>
+                          <span className={p.mando === 'Fora' ? 'text-white' : 'text-zinc-400'}>
+                            {p.mando === 'Fora' ? p.gols_vasco : p.gols_adversario}
+                          </span>
+                        </span>
+                        <span className="text-zinc-300 truncate flex-1 text-right">
+                          {p.mando === 'Fora' ? 'Vasco da Gama' : p.adversario}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[11px] text-zinc-400">
+                        <span className="flex items-center gap-1 truncate">
+                          <MapPin className="w-3 h-3 text-[#D4AF37] shrink-0" />
+                          <span className="truncate">{p.estadio}</span>
+                        </span>
+                        <span className="tabular-nums font-medium text-zinc-300 shrink-0">
+                          {formatarMoeda(p.custo_total)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="text-xs text-zinc-500 text-center py-6">
+                  Nenhum jogo encontrado para este recorte.
+                </p>
+              )}
             </div>
           </div>
-        );
-      })()}
+        </div>
+      )}
     </div>
   );
 }
