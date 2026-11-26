@@ -1,4 +1,4 @@
-# ⚽ Vasco Match Tracker
+# ⚽ VasCheckin
 
 Aplicação Full-Stack (PWA) desenvolvida para registrar, acompanhar e analisar estatísticas pessoais de presença em estádios, aproveitamento esportivo e gastos financeiros em partidas do **Club de Regatas Vasco da Gama**.
 

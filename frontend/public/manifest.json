@@ -1,6 +1,6 @@
 {
-  "name": "Vasco Match Tracker",
-  "short_name": "Vasco Tracker",
+  "name": "VasCheckin",
+  "short_name": "VasCheckin",
   "description": "Controle de presença, aproveitamento e finanças em jogos do CR Vasco da Gama",
   "start_url": "/",
   "display": "standalone",
