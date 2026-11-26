@@ -69,6 +69,8 @@ interface JogadorStat {
   posicao?: string;
   foto?: string | null;
   jogos?: number;
+  titulares?: number;
+  reservas?: number;
   gols?: number;
   assistencias?: number;
   total?: number;
@@ -1679,7 +1681,12 @@ export default function App() {
                 lista: stats.jogadores_mais_vistos || [],
                 valorFn: (i: JogadorStat) => i.jogos || 0,
                 badgeFn: (i: JogadorStat) => `${i.jogos || 0}j`,
-                subFn: () => '',
+                subFn: (i: JogadorStat) => {
+                  const tit = i.titulares || 0;
+                  const res = i.reservas || 0;
+                  if (tit === 0 && res === 0) return '';
+                  return `${tit} tit • ${res} res`;
+                },
                 destaqueCls: 'border-[#D4AF37]/40 bg-[#D4AF37]/[0.04]',
                 corNum: 'text-[#D4AF37]',
                 corBadge: 'text-zinc-200 bg-zinc-800',
@@ -1849,20 +1856,37 @@ export default function App() {
               <div className="grid grid-cols-6 sm:grid-cols-12 gap-2">
                 {meses.map((nomeMes, idx) => {
                   const jogosMes = porMes[idx] || [];
+                  const temJogos = jogosMes.length > 0;
+                  const abrirMes = () => {
+                    if (!temJogos) return;
+                    setJogosModal({
+                      titulo: `Jogos em ${nomeMes}${filtroAno ? `/${filtroAno}` : ''}`,
+                      subtitulo: pluralJogos(jogosMes.length),
+                      jogos: jogosFinalizados.filter(
+                        (p) => Number(p.data_jogo.split('-')[1]) - 1 === idx
+                      )
+                    });
+                  };
+
                   return (
-                    <div
+                    <button
                       key={nomeMes}
-                      className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-2 flex flex-col items-center gap-2 min-h-[68px]"
+                      type="button"
+                      disabled={!temJogos}
+                      onClick={abrirMes}
+                      title={temJogos ? `Ver ${pluralJogos(jogosMes.length)} em ${nomeMes}` : `${nomeMes}: 0 jogos`}
+                      className={`bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-2 flex flex-col items-center gap-2 min-h-[68px] transition ${
+                        temJogos
+                          ? 'hover:border-amber-500/50 hover:bg-zinc-900 cursor-pointer'
+                          : 'opacity-70 cursor-default'
+                      }`}
                     >
                       <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
                         {nomeMes}
                       </span>
                       <div className="flex flex-wrap justify-center gap-1">
                         {jogosMes.length === 0 ? (
-                          <span
-                            title={`${nomeMes}: 0 jogos`}
-                            className="w-3 h-3 rounded-sm bg-zinc-800/50 border border-zinc-800"
-                          />
+                          <span className="w-3 h-3 rounded-sm bg-zinc-800/50 border border-zinc-800" />
                         ) : (
                           jogosMes.map((j, jIdx) => {
                             const cor =
@@ -1872,26 +1896,16 @@ export default function App() {
                                 ? 'bg-amber-400 border-amber-300/60'
                                 : 'bg-rose-500 border-rose-400/60';
                             return (
-                              <button
+                              <span
                                 key={`${j.data_jogo}-${jIdx}`}
-                                type="button"
-                                onClick={() =>
-                                  setJogosModal({
-                                    titulo: `Jogos em ${nomeMes}${filtroAno ? `/${filtroAno}` : ''}`,
-                                    subtitulo: pluralJogos(jogosMes.length),
-                                    jogos: jogosFinalizados.filter(
-                                      (p) => Number(p.data_jogo.split('-')[1]) - 1 === idx
-                                    )
-                                  })
-                                }
                                 title={`${formatarData(j.data_jogo)} • Vasco ${j.placar} ${j.adversario} (${j.estadio})`}
-                                className={`w-3.5 h-3.5 rounded-sm border transition-transform hover:scale-125 cursor-pointer ${cor}`}
+                                className={`w-3.5 h-3.5 rounded-sm border ${cor}`}
                               />
                             );
                           })
                         )}
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>

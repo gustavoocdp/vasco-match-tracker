@@ -239,7 +239,15 @@ def deletar_partida(partida_id: int, db: Session = Depends(get_db)):
 def sincronizar_manual(season: Optional[int] = None, db: Session = Depends(get_db)):
     try:
         vincular_partidas_manuais_espn(db)
-        return sincronizar_jogos_vasco(db, season=season)
+        res = sincronizar_jogos_vasco(db, season=season)
+        finalizadas = (
+            db.query(Partida)
+            .filter(Partida.fui.is_(True), Partida.status_jogo == "finalizado")
+            .order_by(Partida.data_jogo.desc())
+            .all()
+        )
+        enriquecer_gols_partidas(db, finalizadas, limite=25)
+        return res
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Falha ao sincronizar jogos: {exc}")
 
@@ -484,6 +492,8 @@ def obter_estatisticas(
     por_mando = {}
     adversarios_map = {}
     jogos_por_jogador: dict[str, int] = {}
+    titulares_por_jogador: dict[str, int] = {}
+    reservas_por_jogador: dict[str, int] = {}
     gols_por_jogador: dict[str, int] = {}
     assists_por_jogador: dict[str, int] = {}
     info_por_jogador: dict[str, dict] = {}
@@ -506,6 +516,12 @@ def obter_estatisticas(
 
             for nome in det.get("elenco_vasco") or []:
                 jogos_por_jogador[nome] = jogos_por_jogador.get(nome, 0) + 1
+
+            for nome in det.get("titulares_vasco") or []:
+                titulares_por_jogador[nome] = titulares_por_jogador.get(nome, 0) + 1
+
+            for nome in det.get("reservas_vasco") or []:
+                reservas_por_jogador[nome] = reservas_por_jogador.get(nome, 0) + 1
 
             for gol in det.get("vasco") or []:
                 min_str = (gol.get("minuto") or "").strip()
@@ -618,7 +634,13 @@ def obter_estatisticas(
         return {"posicao": posicao, "foto": foto, "jogos_em_campo": jogos_j, "media_por_jogo": media}
 
     jogadores_mais_vistos = [
-        {"jogador": nome, "jogos": qtd, **_meta_jogador(nome, qtd)}
+        {
+            "jogador": nome,
+            "jogos": qtd,
+            "titulares": titulares_por_jogador.get(nome, 0),
+            "reservas": reservas_por_jogador.get(nome, 0),
+            **_meta_jogador(nome, qtd),
+        }
         for nome, qtd in top_vistos_raw
     ]
     artilheiros_vasco = [

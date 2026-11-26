@@ -266,6 +266,8 @@ def buscar_gols_partida_espn(external_id: str) -> Optional[dict]:
             gols_adv.append(item)
 
     elenco_vasco: list[str] = []
+    titulares_vasco: list[str] = []
+    reservas_vasco: list[str] = []
     assist_por_stats: dict[str, int] = {}
     jogadores_info: dict[str, dict] = {}
 
@@ -294,14 +296,15 @@ def buscar_gols_partida_espn(external_id: str) -> Optional[dict]:
                 for s in (player.get("stats") or [])
                 if s.get("name")
             }
-            jogou = bool(
-                player.get("starter")
-                or player.get("subbedIn")
-                or stats_map.get("appearances", 0) > 0
-                or stats_map.get("subIns", 0) > 0
-            )
+            eh_titular = bool(player.get("starter"))
+            entrou_sub = bool(player.get("subbedIn") or stats_map.get("subIns", 0) > 0)
+            jogou = eh_titular or entrou_sub or stats_map.get("appearances", 0) > 0
             if jogou and nome not in elenco_vasco:
                 elenco_vasco.append(nome)
+                if eh_titular:
+                    titulares_vasco.append(nome)
+                else:
+                    reservas_vasco.append(nome)
 
             assists = int(stats_map.get("goalAssists", 0))
             if assists > 0:
@@ -318,6 +321,8 @@ def buscar_gols_partida_espn(external_id: str) -> Optional[dict]:
         "vasco": gols_vasco,
         "adversario": gols_adv,
         "elenco_vasco": elenco_vasco,
+        "titulares_vasco": titulares_vasco,
+        "reservas_vasco": reservas_vasco,
         "assistencias_vasco": assistencias_vasco,
         "jogadores_info": jogadores_info,
     }
@@ -334,7 +339,7 @@ def enriquecer_gols_partidas(db: Session, partidas: list[Partida], limite: int =
         else:
             try:
                 parsed = json.loads(p.gols_detalhes)
-                if "elenco_vasco" not in parsed or "jogadores_info" not in parsed:
+                if "elenco_vasco" not in parsed or "jogadores_info" not in parsed or "titulares_vasco" not in parsed:
                     pendentes.append(p)
             except Exception:
                 pendentes.append(p)
