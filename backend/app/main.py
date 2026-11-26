@@ -655,6 +655,7 @@ def obter_estatisticas(
         top_freg = max(
             candidatos_fregues,
             key=lambda a: (
+                a["vitorias"] - a["derrotas"],
                 a["vitorias"],
                 (a["vitorias"] * 3 + a["empates"]) / (a["jogos"] * 3),
                 a["gols_pro"] - a["gols_contra"],

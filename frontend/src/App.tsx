@@ -250,7 +250,7 @@ export default function App() {
   const [filtroCompeticao, setFiltroCompeticao] = useState<string>('');
   const [filtroEstadio, setFiltroEstadio] = useState<string>('');
   const [filtroCheckin, setFiltroCheckin] = useState<FiltroCheckin>('pendentes');
-  const [abaAdversario, setAbaAdversario] = useState<'enfrentados' | 'fregueses' | 'algozes'>('enfrentados');
+  const [abaAdversario, setAbaAdversario] = useState<'enfrentados' | 'fregueses' | 'algozes'>('fregueses');
 
   // Sincronização e Compartilhamento
   const [sincronizando, setSincronizando] = useState(false);
@@ -1246,8 +1246,9 @@ export default function App() {
                   .filter((a) => a.vitorias > 0)
                   .sort(
                     (a, b) =>
-                      calcAprov(b) - calcAprov(a) ||
+                      b.vitorias - b.derrotas - (a.vitorias - a.derrotas) ||
                       b.vitorias - a.vitorias ||
+                      calcAprov(b) - calcAprov(a) ||
                       b.gols_pro - b.gols_contra - (a.gols_pro - a.gols_contra)
                   )
                   .slice(0, 15);
@@ -1268,13 +1269,9 @@ export default function App() {
               const renderLinhaAdv = (adv: AdversarioStats, idx: number, mostrarPodio: boolean) => {
                 const aprov = calcAprov(adv);
                 const pctBar = Math.round((adv.jogos / maxJogos) * 100);
-
-                const bordaSemantica =
-                  aprov > 50
-                    ? 'border-emerald-500/35'
-                    : aprov === 50
-                    ? 'border-amber-500/30'
-                    : 'border-rose-500/30';
+                const pctV = adv.jogos > 0 ? (adv.vitorias / adv.jogos) * 100 : 0;
+                const pctE = adv.jogos > 0 ? (adv.empates / adv.jogos) * 100 : 0;
+                const pctD = adv.jogos > 0 ? (adv.derrotas / adv.jogos) * 100 : 0;
 
                 const cardCls = mostrarPodio
                   ? idx === 0
@@ -1283,8 +1280,8 @@ export default function App() {
                     ? 'border-zinc-500/40'
                     : idx === 2
                     ? 'border-amber-700/40'
-                    : bordaSemantica
-                  : bordaSemantica;
+                    : 'border-white/10'
+                  : 'border-white/10';
 
                 const rankBadge = mostrarPodio
                   ? idx === 0
@@ -1296,12 +1293,12 @@ export default function App() {
                     : 'bg-zinc-800 text-zinc-400'
                   : 'bg-zinc-800 text-zinc-400';
 
-                const pillCls =
+                const corAprovTexto =
                   aprov > 50
-                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                    ? 'text-emerald-400'
                     : aprov === 50
-                    ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-                    : 'bg-rose-500/10 text-rose-400 border-rose-500/30';
+                    ? 'text-amber-300/90'
+                    : 'text-rose-400/80';
 
                 return (
                   <div
@@ -1313,7 +1310,7 @@ export default function App() {
                       style={{ width: `${pctBar}%` }}
                       className="absolute inset-y-0 left-0 bg-white/[0.03] pointer-events-none"
                     />
-                    <div className="flex items-center gap-2.5 min-w-0 relative">
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1 relative">
                       <span
                         className={`text-[11px] font-extrabold w-5 h-5 rounded-md flex items-center justify-center shrink-0 tabular-nums ${rankBadge}`}
                       >
@@ -1326,17 +1323,20 @@ export default function App() {
                           className="w-5 h-5 object-contain shrink-0"
                         />
                       )}
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1 max-w-[230px]">
                         <div className="font-semibold text-sm text-white truncate">{adv.adversario}</div>
                         <div className="text-xs text-zinc-400 tabular-nums">
                           {adv.vitorias}V • {adv.empates}E • {adv.derrotas}D • Gols: {adv.gols_pro}x{adv.gols_contra}
                         </div>
+                        <div className="mt-1.5 h-1 w-full rounded-full bg-zinc-800 overflow-hidden flex">
+                          {pctV > 0 && <div style={{ width: `${pctV}%` }} className="bg-emerald-500 h-full" />}
+                          {pctE > 0 && <div style={{ width: `${pctE}%` }} className="bg-amber-400 h-full" />}
+                          {pctD > 0 && <div style={{ width: `${pctD}%` }} className="bg-rose-500/80 h-full" />}
+                        </div>
                       </div>
                     </div>
-                    <span
-                      className={`text-xs font-bold border px-2.5 py-1 rounded-lg shrink-0 tabular-nums relative ${pillCls}`}
-                    >
-                      {pluralJogos(adv.jogos)} • {aprov}%
+                    <span className="text-xs font-bold bg-zinc-800/90 border border-zinc-700/70 text-zinc-200 px-2.5 py-1 rounded-lg shrink-0 tabular-nums relative">
+                      {pluralJogos(adv.jogos)} • <span className={corAprovTexto}>{aprov}%</span>
                     </span>
                   </div>
                 );
@@ -1364,17 +1364,6 @@ export default function App() {
                   <div className="flex flex-wrap items-center gap-1.5 mb-3 bg-zinc-900/90 p-1 rounded-xl border border-zinc-800 w-fit">
                     <button
                       type="button"
-                      onClick={() => setAbaAdversario('enfrentados')}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition cursor-pointer ${
-                        abaAdversario === 'enfrentados'
-                          ? 'bg-[#D4AF37] text-black'
-                          : 'text-zinc-400 hover:text-white'
-                      }`}
-                    >
-                      Mais Enfrentados
-                    </button>
-                    <button
-                      type="button"
                       onClick={() => setAbaAdversario('fregueses')}
                       className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition cursor-pointer ${
                         abaAdversario === 'fregueses'
@@ -1383,6 +1372,17 @@ export default function App() {
                       }`}
                     >
                       Maiores Fregueses
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAbaAdversario('enfrentados')}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition cursor-pointer ${
+                        abaAdversario === 'enfrentados'
+                          ? 'bg-[#D4AF37] text-black'
+                          : 'text-zinc-400 hover:text-white'
+                      }`}
+                    >
+                      Mais Enfrentados
                     </button>
                     <button
                       type="button"
