@@ -689,7 +689,7 @@ export default function App() {
         {/* Filtro de Ano na aba Estatísticas */}
         {abaAtiva === 'estatisticas' && (
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-base font-bold text-white">Resumo &amp; Analytics</h2>
+            <h2 className="text-base font-bold text-white">Minhas Estatísticas</h2>
             <select
               value={filtroAno}
               onChange={(e) => setFiltroAno(e.target.value)}
@@ -705,6 +705,97 @@ export default function App() {
               <option value="2019">2019</option>
             </select>
           </div>
+        )}
+
+        {/* Últimos Check-ins (Carrossel horizontal de 4 por vez no topo da aba Estatísticas) */}
+        {abaAtiva === 'estatisticas' && partidas.length > 0 && (
+          <section className="bg-[#141414] border border-zinc-800/90 rounded-2xl p-4 sm:p-5">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
+                <Ticket className="w-4 h-4 text-[#D4AF37]" />
+                Últimos Check-ins
+              </h2>
+              <button
+                onClick={() => setAbaAtiva('checkins')}
+                className="text-xs font-semibold text-zinc-400 hover:text-[#D4AF37] transition-colors cursor-pointer"
+              >
+                Ver todos →
+              </button>
+            </div>
+
+            <div className="grid grid-flow-col auto-cols-[85%] sm:auto-cols-[calc((100%-12px)/2)] lg:auto-cols-[calc((100%-36px)/4)] gap-3 overflow-x-auto pb-2 snap-x snap-mandatory">
+              {partidas.map((p) => {
+                const badge = badgeStatus(p);
+                const borderLeftCls =
+                  p.status_jogo === 'agendado'
+                    ? 'border-l-zinc-500'
+                    : p.resultado === 'V'
+                    ? 'border-l-emerald-500'
+                    : p.resultado === 'E'
+                    ? 'border-l-[#D4AF37]'
+                    : 'border-l-rose-500';
+
+                return (
+                  <button
+                    key={`ultimo-${p.id}`}
+                    type="button"
+                    onClick={() => setAbaAtiva('checkins')}
+                    className={`snap-start text-left bg-zinc-900/80 border border-zinc-800 border-l-4 ${borderLeftCls} rounded-xl p-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-500/40 flex flex-col justify-between gap-2.5 cursor-pointer`}
+                  >
+                    <div className="flex items-center justify-between gap-2 text-[11px] text-zinc-400 w-full">
+                      <span className="truncate font-medium text-zinc-300">{p.competicao}</span>
+                      <span className={`font-bold px-1.5 py-0.5 rounded border text-[10px] shrink-0 ${badge.cls}`}>
+                        {badge.label}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 bg-zinc-950/60 border border-zinc-800/70 rounded-lg px-3 py-2 w-full">
+                      <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                        {p.mando === 'Fora' ? (
+                          p.adversario_logo && (
+                            <img src={p.adversario_logo} alt={p.adversario} className="w-5 h-5 object-contain shrink-0" />
+                          )
+                        ) : (
+                          <img src={VASCO_LOGO_URL} alt="Vasco" className="w-5 h-5 object-contain shrink-0" />
+                        )}
+                        <span className="text-xs font-semibold text-white truncate">
+                          {p.mando === 'Fora' ? p.adversario : 'Vasco'}
+                        </span>
+                      </div>
+
+                      <div className="text-sm font-extrabold tabular-nums shrink-0 px-1">
+                        <span className={p.mando === 'Fora' ? 'text-zinc-400' : 'text-white'}>
+                          {p.mando === 'Fora' ? p.gols_adversario : p.gols_vasco}
+                        </span>
+                        <span className="text-zinc-600 mx-1">×</span>
+                        <span className={p.mando === 'Fora' ? 'text-white' : 'text-zinc-400'}>
+                          {p.mando === 'Fora' ? p.gols_vasco : p.gols_adversario}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-end gap-1.5 min-w-0 flex-1">
+                        <span className="text-xs font-semibold text-zinc-300 truncate">
+                          {p.mando === 'Fora' ? 'Vasco' : p.adversario}
+                        </span>
+                        {p.mando === 'Fora' ? (
+                          <img src={VASCO_LOGO_URL} alt="Vasco" className="w-5 h-5 object-contain shrink-0" />
+                        ) : (
+                          p.adversario_logo && (
+                            <img src={p.adversario_logo} alt={p.adversario} className="w-5 h-5 object-contain shrink-0" />
+                          )
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] text-zinc-400 w-full">
+                      <span className="truncate pr-2">{p.estadio}</span>
+                      <span className="tabular-nums shrink-0">{formatarData(p.data_jogo)}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
         )}
 
         {/* KPIs Principais (Grid assimétrico, watermarks e barra segmentada) */}
@@ -931,7 +1022,8 @@ export default function App() {
                               {pluralJogos(dados.jogos)} • {dados.vitorias}V • {dados.empates}E • {dados.derrotas}D
                             </div>
                           </div>
-                          <span className="text-sm font-bold text-[#D4AF37] bg-[#D4AF37]/10 px-2.5 py-1 rounded-lg tabular-nums">
+                          <span className="text-sm font-bold text-[#D4AF37] bg-[#D4AF37]/10 px-2.5 py-1 rounded-lg tabular-nums shrink-0">
+                            <span className="text-[11px] font-medium text-[#D4AF37]/80 mr-1.5">Aproveitamento</span>
                             {aprov}%
                           </span>
                         </div>
