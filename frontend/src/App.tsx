@@ -2657,7 +2657,7 @@ export default function App() {
           onClick={() => setJogosModal(null)}
         >
           <div
-            className="bg-[#141414] border border-zinc-800 rounded-2xl max-w-lg w-full max-h-[85vh] flex flex-col overflow-hidden shadow-2xl"
+            className="bg-[#141414] border border-zinc-800 rounded-2xl max-w-6xl w-full max-h-[85vh] flex flex-col overflow-hidden shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-4 sm:p-5 border-b border-zinc-800 flex items-center justify-between gap-3">
@@ -2685,9 +2685,10 @@ export default function App() {
               </button>
             </div>
 
-            <div className="p-4 sm:p-5 overflow-y-auto space-y-3">
+            <div className="p-4 sm:p-5 overflow-y-auto scrollbar-thin">
               {jogosModal.jogos.length > 0 ? (
-                jogosModal.jogos.map((p) => {
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {jogosModal.jogos.map((p) => {
                   const badge = badgeStatus(p);
                   const borderLeftCls =
                     p.resultado === 'V'
@@ -2706,9 +2707,10 @@ export default function App() {
                   return (
                     <div
                       key={`modal-jogo-${p.id}`}
-                      className={`bg-zinc-900/80 border border-zinc-800/90 border-l-4 ${borderLeftCls} rounded-2xl p-3.5 space-y-2.5`}
+                      className={`bg-zinc-900/80 border border-zinc-800/90 border-l-4 ${borderLeftCls} rounded-2xl p-3.5 flex flex-col justify-between gap-2.5`}
                     >
-                      <div className="flex items-center justify-between text-xs text-zinc-400">
+                      <div className="space-y-2.5">
+                        <div className="flex items-center justify-between text-xs text-zinc-400">
                         <span className="flex items-center gap-1.5 font-medium text-zinc-300 min-w-0">
                           <CompeticaoLogo nome={p.competicao} className="w-5 h-5" />
                           <span className="truncate">{p.competicao}</span>
@@ -2831,6 +2833,7 @@ export default function App() {
                           </div>
                         )}
                       </div>
+                      </div>
 
                       <div className="flex items-center justify-between text-xs text-zinc-400 pt-0.5">
                         <span className="flex items-center gap-1.5 truncate">
@@ -2844,7 +2847,8 @@ export default function App() {
                       </div>
                     </div>
                   );
-                })
+                })}
+                </div>
               ) : (
                 <p className="text-xs text-zinc-500 text-center py-6">
                   Nenhum jogo encontrado para este recorte.
